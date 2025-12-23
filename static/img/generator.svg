@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300">
+  <defs>
+    <linearGradient id="generatorGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#E74C3C;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#C0392B;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="300" height="300" fill="#f5f5f5"/>
+  <!-- Generator casing -->
+  <ellipse cx="150" cy="150" rx="90" ry="110" fill="url(#generatorGrad)"/>
+  <!-- Rotor -->
+  <circle cx="150" cy="150" r="60" fill="#333"/>
+  <!-- Magnetic field visualization -->
+  <circle cx="150" cy="150" r="50" fill="none" stroke="#FFD700" stroke-width="2" opacity="0.6"/>
+  <!-- Stator coils -->
+  <g stroke="#1e90ff" stroke-width="3" fill="none">
+    <path d="M 120 100 Q 100 150 120 200"/>
+    <path d="M 180 100 Q 200 150 180 200"/>
+    <path d="M 150 90 Q 150 150 150 210"/>
+  </g>
+  <!-- Brush connections -->
+  <rect x="140" y="50" width="20" height="15" fill="#888"/>
+  <rect x="140" y="235" width="20" height="15" fill="#888"/>
+  <!-- Output terminals -->
+  <rect x="60" y="140" width="15" height="20" fill="#FFD700" stroke="#333" stroke-width="2"/>
+  <rect x="225" y="140" width="15" height="20" fill="#FFD700" stroke="#333" stroke-width="2"/>
+  <!-- Cooling fins -->
+  <rect x="45" y="130" width="8" height="40" fill="#555"/>
+  <rect x="40" y="130" width="8" height="40" fill="#555"/>
+  <rect x="247" y="130" width="8" height="40" fill="#555"/>
+  <rect x="252" y="130" width="8" height="40" fill="#555"/>
+  <text x="150" y="270" font-size="16" font-weight="bold" text-anchor="middle" fill="#333">Генератор 150А</text>
+</svg>

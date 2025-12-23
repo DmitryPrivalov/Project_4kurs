@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ панель - Пользователи</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .admin-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        header h1 {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        header .nav-links {
+            display: flex;
+            gap: 15px;
+        }
+
+        header a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        header a:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid #667eea;
+        }
+
+        .stat-card h3 {
+            color: #666;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 10px;
+        }
+
+        .stat-card .number {
+            font-size: 32px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .table-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .table-header {
+            background: #f9f9f9;
+            padding: 20px;
+            border-bottom: 2px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .table-header h2 {
+            color: #333;
+            font-size: 20px;
+            margin: 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: #f0f0f0;
+        }
+
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #ddd;
+            font-size: 14px;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            color: #555;
+            font-size: 14px;
+        }
+
+        tbody tr {
+            transition: background 0.3s ease;
+        }
+
+        tbody tr:hover {
+            background: #f9f9f9;
+        }
+
+        .role-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .role-admin {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .role-user {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+
+        .btn-delete {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-delete:hover {
+            background: #c0392b;
+            transform: translateY(-2px);
+        }
+
+        .btn-delete:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-delete[disabled]:hover {
+            background: #ccc;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+
+        .empty-state p {
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 10px;
+        }
+
+        .search-box input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            min-width: 200px;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .created-date {
+            color: #999;
+            font-size: 12px;
+        }
+
+        .action-column {
+            min-width: 150px;
+        }
+
+        @media (max-width: 768px) {
+            header {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            header .nav-links {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .search-box {
+                flex-direction: column;
+            }
+
+            .search-box input {
+                min-width: 100%;
+            }
+
+            table {
+                font-size: 12px;
+            }
+
+            th, td {
+                padding: 10px;
+            }
+
+            .btn-delete {
+                padding: 6px 12px;
+                font-size: 11px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="admin-container">
+    <header>
+        <div>
+            <h1>🔐 Админ панель</h1>
+        </div>
+        <div class="nav-links">
+            <a href="/admin/products">📦 Товары</a>
+            <a href="/admin/services">🔧 Автосервисы</a>
+            <a href="/">← На главную</a>
+            <a href="/logout">Выход</a>
+        </div>
+    </header>
+
+    <div class="stats">
+        <div class="stat-card">
+            <h3>Всего пользователей</h3>
+            <div class="number">{{ users|length }}</div>
+        </div>
+        <div class="stat-card">
+            <h3>Администраторов</h3>
+            <div class="number">{{ users|selectattr('role', 'equalto', 'admin')|list|length }}</div>
+        </div>
+        <div class="stat-card">
+            <h3>Обычных пользователей</h3>
+            <div class="number">{{ users|selectattr('role', 'equalto', 'user')|list|length }}</div>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <div class="table-header">
+            <h2>База пользователей</h2>
+            <div class="search-box">
+                <input type="text" id="search-input" placeholder="Поиск по логину или email...">
+            </div>
+        </div>
+
+        {% if users %}
+        <table id="users-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Логин</th>
+                    <th>Email</th>
+                    <th>Роль</th>
+                    <th>Дата регистрации</th>
+                    <th class="action-column">Действия</th>
+                </tr>
+            </thead>
+            <tbody id="table-body">
+                {% for user in users %}
+                <tr class="user-row">
+                    <td>{{ user[0] }}</td>
+                    <td>{{ user[1] }}</td>
+                    <td>{{ user[2] }}</td>
+                    <td>
+                        <span class="role-badge {% if user[3] == 'admin' %}role-admin{% else %}role-user{% endif %}">
+                            {% if user[3] == 'admin' %}👑 Администратор{% else %}👤 Пользователь{% endif %}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="created-date">{{ user[4] }}</span>
+                    </td>
+                    <td class="action-column">
+                        {% if user[3] != 'admin' %}
+                        <button class="btn-delete" onclick="deleteUser({{ user[0] }}, '{{ user[1] }}')">
+                            ✕ Удалить
+                        </button>
+                        {% else %}
+                        <button class="btn-delete" disabled title="Нельзя удалить администратора">
+                            ✕ Удалить
+                        </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <p>Нет пользователей в базе</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    function deleteUser(userId, userName) {
+        if (confirm(`Вы уверены, что хотите удалить пользователя "${userName}"? Это действие необратимо!`)) {
+            fetch(`/api/admin/delete-user/${userId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Пользователь успешно удален!');
+                    // Удаляем строку из таблицы
+                    const row = event.target.closest('tr');
+                    row.style.opacity = '0';
+                    row.style.transition = 'opacity 0.3s ease';
+                    setTimeout(() => row.remove(), 300);
+                    // Обновляем счетчик
+                    location.reload();
+                } else {
+                    alert('Ошибка: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Ошибка при удалении пользователя');
+            });
+        }
+    }
+
+    // Поиск по таблице
+    document.getElementById('search-input')?.addEventListener('keyup', function(e) {
+        const searchText = e.target.value.toLowerCase();
+        const tableBody = document.getElementById('table-body');
+        if (!tableBody) return;
+        
+        const rows = tableBody.getElementsByClassName('user-row');
+        for (let row of rows) {
+            const login = row.cells[1].textContent.toLowerCase();
+            const email = row.cells[2].textContent.toLowerCase();
+            if (login.includes(searchText) || email.includes(searchText)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        }
+    });
+</script>
+
+</body>
+</html>

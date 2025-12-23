@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление заказами</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 32px;
+            text-align: center;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .nav-buttons a, .nav-buttons button {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .nav-buttons a:hover, .nav-buttons button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .filter-bar {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-bar select {
+            padding: 10px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            border-radius: 12px;
+            color: white;
+            text-align: center;
+        }
+
+        .stat-card h3 {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+
+        .stat-card .number {
+            font-size: 32px;
+            font-weight: 700;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background: #f8f9fa;
+            color: #333;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .status-в-разработке {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-в-пути {
+            background: #cfe2ff;
+            color: #084298;
+        }
+
+        .status-выдан {
+            background: #d1e7dd;
+            color: #0f5132;
+        }
+
+        .status-отменен {
+            background: #f8d7da;
+            color: #842029;
+        }
+
+        .status-select {
+            padding: 8px 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .btn-update {
+            padding: 8px 16px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn-update:hover {
+            background: #218838;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .order-details {
+            font-size: 13px;
+            color: #666;
+        }
+
+        .product-name {
+            font-weight: 600;
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📦 Управление заказами</h1>
+
+        <div class="nav-buttons">
+            <a href="/admin/users">👥 Пользователи</a>
+            <a href="/admin/products">📦 Товары</a>
+            <a href="/admin/services">🔧 Сервисы</a>
+            <a href="/admin/orders">📋 Заказы</a>
+            <a href="/catalog">🏠 Каталог</a>
+        </div>
+
+        <div class="filter-bar">
+            <select id="statusFilter" onchange="filterOrders()">
+                <option value="">Все статусы</option>
+                <option value="в разработке">В разработке</option>
+                <option value="в пути">В пути</option>
+                <option value="выдан">Выдан</option>
+                <option value="отменен">Отменен</option>
+            </select>
+            <button onclick="location.reload()" class="nav-buttons button">🔄 Обновить</button>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <h3>В разработке</h3>
+                <div class="number" id="stat-в-разработке">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>В пути</h3>
+                <div class="number" id="stat-в-пути">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Выдан</h3>
+                <div class="number" id="stat-выдан">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Отменен</h3>
+                <div class="number" id="stat-отменен">0</div>
+            </div>
+        </div>
+
+        <div style="overflow-x: auto;">
+            <table id="ordersTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Дата</th>
+                        <th>Клиент</th>
+                        <th>Контакты</th>
+                        <th>Товар</th>
+                        <th>Кол-во</th>
+                        <th>Статус</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody id="ordersBody">
+                    <tr>
+                        <td colspan="8" class="empty-state">Загрузка заказов...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let allOrders = [];
+
+        async function loadOrders() {
+            try {
+                const response = await fetch('/api/admin/orders');
+                const result = await response.json();
+
+                if (result.success) {
+                    allOrders = result.orders;
+                    displayOrders(allOrders);
+                    updateStats(allOrders);
+                } else {
+                    document.getElementById('ordersBody').innerHTML = `
+                        <tr><td colspan="8" class="empty-state">Ошибка загрузки заказов</td></tr>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('ordersBody').innerHTML = `
+                    <tr><td colspan="8" class="empty-state">Ошибка сервера</td></tr>
+                `;
+            }
+        }
+
+        function displayOrders(orders) {
+            const tbody = document.getElementById('ordersBody');
+
+            if (orders.length === 0) {
+                tbody.innerHTML = `
+                    <tr><td colspan="8" class="empty-state">Нет заказов</td></tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = orders.map(order => `
+                <tr>
+                    <td>#${order.id}</td>
+                    <td>${new Date(order.created_at).toLocaleString('ru-RU')}</td>
+                    <td>
+                        <div style="font-weight: 600;">${order.fio}</div>
+                    </td>
+                    <td>
+                        <div class="order-details">
+                            📞 ${order.phone}<br>
+                            📧 ${order.email}
+                        </div>
+                    </td>
+                    <td>
+                        <div class="product-name">${order.product_name || 'Товар удален'}</div>
+                        ${order.comment ? `<div class="order-details">💬 ${order.comment}</div>` : ''}
+                    </td>
+                    <td>${order.quantity || 1} шт.</td>
+                    <td>
+                        <span class="status-badge status-${order.status}">${order.status}</span>
+                    </td>
+                    <td>
+                        <select class="status-select" id="status-${order.id}">
+                            <option value="в разработке" ${order.status === 'в разработке' ? 'selected' : ''}>В разработке</option>
+                            <option value="в пути" ${order.status === 'в пути' ? 'selected' : ''}>В пути</option>
+                            <option value="выдан" ${order.status === 'выдан' ? 'selected' : ''}>Выдан</option>
+                            <option value="отменен" ${order.status === 'отменен' ? 'selected' : ''}>Отменен</option>
+                        </select>
+                        <button class="btn-update" onclick="updateOrderStatus(${order.id})">Обновить</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function filterOrders() {
+            const filter = document.getElementById('statusFilter').value;
+            
+            if (filter === '') {
+                displayOrders(allOrders);
+            } else {
+                const filtered = allOrders.filter(order => order.status === filter);
+                displayOrders(filtered);
+            }
+        }
+
+        function updateStats(orders) {
+            const stats = {
+                'в разработке': 0,
+                'в пути': 0,
+                'выдан': 0,
+                'отменен': 0
+            };
+
+            orders.forEach(order => {
+                if (stats.hasOwnProperty(order.status)) {
+                    stats[order.status]++;
+                }
+            });
+
+            Object.keys(stats).forEach(status => {
+                const el = document.getElementById(`stat-${status}`);
+                if (el) el.textContent = stats[status];
+            });
+        }
+
+        async function updateOrderStatus(orderId) {
+            const newStatus = document.getElementById(`status-${orderId}`).value;
+
+            try {
+                const response = await fetch(`/api/admin/orders/${orderId}/status`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ status: newStatus })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('✅ Статус заказа обновлен');
+                    loadOrders(); // Reload orders
+                } else {
+                    alert('❌ ' + (result.message || 'Ошибка обновления статуса'));
+                }
+            } catch (error) {
+                alert('❌ Ошибка сервера');
+            }
+        }
+
+        // Load orders on page load
+        window.addEventListener('DOMContentLoaded', loadOrders);
+    </script>
+</body>
+</html>

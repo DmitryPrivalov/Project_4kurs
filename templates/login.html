@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            animation: gradientShift 15s ease infinite;
+            background-size: 200% 200%;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .container {
+            width: 100%;
+            max-width: 450px;
+            animation: slideUp 0.6s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .form-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .form-box {
+            padding: 50px 40px;
+        }
+
+        .form-box h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+            font-weight: 700;
+            animation: fadeInDown 0.6s ease 0.2s both;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .form-box p {
+            text-align: center;
+            color: #999;
+            margin-bottom: 30px;
+            font-size: 14px;
+            animation: fadeInDown 0.6s ease 0.3s both;
+        }
+
+        .form-value {
+            margin-bottom: 20px;
+            animation: fadeInUp 0.6s ease;
+            animation-fill-mode: both;
+        }
+
+        .form-value:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        .form-value:nth-child(4) {
+            animation-delay: 0.5s;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .form-value label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .form-value input {
+            width: 100%;
+            padding: 14px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        .form-value input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            background: #f8f9ff;
+            transform: translateY(-2px);
+        }
+
+        .form-value input::placeholder {
+            color: #999;
+            font-size: 13px;
+        }
+
+        .error-message {
+            color: #e74c3c;
+            background: #fadbd8;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #e74c3c;
+            font-size: 14px;
+            animation: slideDown 0.4s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .success-message {
+            color: #27ae60;
+            background: #d5f4e6;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #27ae60;
+            font-size: 14px;
+            animation: slideDown 0.4s ease;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+            position: relative;
+            overflow: hidden;
+            animation: fadeInUp 0.6s ease 0.6s both;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        button:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(-1px);
+        }
+
+        .register-link {
+            text-align: center;
+            margin-top: 25px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .register-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.3s ease;
+        }
+
+        .register-link a:hover {
+            color: #764ba2;
+        }
+
+        @media (max-width: 480px) {
+            .form-box {
+                padding: 30px 20px;
+            }
+
+            .form-box h2 {
+                font-size: 24px;
+                margin-bottom: 8px;
+            }
+
+            .form-value {
+                margin-bottom: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="form-container">
+        <div class="form-box">
+            <h2>Вход</h2>
+            <p>Добро пожаловать обратно!</p>
+            
+            <form method="POST" action="/login">
+                <div class="form-value">
+                    <label for="login">Логин</label>
+                    <input type="text" id="login" name="login" required placeholder="Введите ваш логин">
+                </div>
+                <div class="form-value">
+                    <label for="password">Пароль</label>
+                    <input type="password" id="password" name="password" required placeholder="Введите пароль">
+                </div>
+                
+                {% if error %}
+                    <div class="error-message">⚠️ {{ error }}</div>
+                {% endif %}
+                {% if success %}
+                    <div class="success-message">✅ {{ success }}</div>
+                {% endif %}
+                
+                <button type="submit">Войти</button>
+                
+                <div class="register-link">
+                    Нет аккаунта? <a href="/register">Зарегистрируйтесь</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Анимация масштабирования при фокусе
+    document.querySelectorAll('input').forEach(input => {
+        input.addEventListener('focus', function() {
+            this.parentElement.style.transform = 'scale(1.02)';
+        });
+        
+        input.addEventListener('blur', function() {
+            this.parentElement.style.transform = 'scale(1)';
+        });
+    });
+
+    // Анимация формы при загрузке
+    window.addEventListener('load', function() {
+        document.querySelector('.container').style.animation = 'slideUp 0.6s ease';
+    });
+</script>
+
+</body>
+</html>

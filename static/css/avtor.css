@@ -1,0 +1,71 @@
+ body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-image: url('auto-background.jpg'); /* Задний фон с автомобильной тематикой */
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        .container {
+            background-color: rgba(255, 255, 255, 0.8); /* Полупрозрачный белый фон */
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Более выраженная тень */
+            width: 400px;
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #2980b9; /* Синий цвет для автосалона */
+            font-size: 2.5em; /* Более крупный заголовок */
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333; /* Темно-серый цвет для текста */
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="password"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+            margin-bottom: 15px;
+            font-size: 1.1em; /* Крупнее текст в полях */
+        }
+
+        button[type="submit"] {
+            background-color: #2980b9; /* Синий цвет для автосалона */
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            font-size: 1.2em; /* Крупнее кнопка */
+            font-weight: bold;
+        }
+
+        button[type="submit"]:hover {
+            background-color: #21618c; /* Более темный синий цвет при наведении */
+        }
+
+        .error-message {
+            color: red;
+            margin-bottom: 10px;
+        }

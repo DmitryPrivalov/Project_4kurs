@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ панель - Товары</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .admin-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        header h1 {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        header .nav-links {
+            display: flex;
+            gap: 15px;
+        }
+
+        header a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        header a:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .content-card {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+            box-shadow: 0 5px 15px rgba(231, 76, 60, 0.4);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .product-image {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 5px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            overflow-y: auto;
+        }
+
+        .modal.active {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            position: relative;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .close {
+            position: absolute;
+            right: 20px;
+            top: 15px;
+            font-size: 32px;
+            font-weight: bold;
+            color: #999;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .close:hover {
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+        }
+
+        .form-input, .form-textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+            font-family: inherit;
+        }
+
+        .form-textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .form-input:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .error-message {
+            color: #e74c3c;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            display: none;
+            background: #ffe6e6;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .success-message {
+            color: #27ae60;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            display: none;
+            background: #e6ffe6;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <header>
+            <h1>🛠️ Управление товарами</h1>
+            <div class="nav-links">
+                <a href="/admin/users">👥 Пользователи</a>                <a href="/admin/orders">📋 Заказы</a>                <a href="/admin/services">🔧 Автосервисы</a>
+                <a href="/catalog">📦 Каталог</a>
+                <a href="/">🏠 Главная</a>
+                <a href="/logout">🚪 Выход</a>
+            </div>
+        </header>
+
+        <div class="content-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div>
+                    <div class="stat-value">{{ products|length }}</div>
+                    <div class="stat-label">Всего товаров</div>
+                </div>
+                <button class="btn" onclick="openAddModal()">➕ Добавить товар</button>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Изображение</th>
+                        <th>Название</th>
+                        <th>Цена</th>
+                        <th>Категория</th>
+                        <th>Производитель</th>
+                        <th>Остаток</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in products %}
+                    <tr>
+                        <td>{{ product.id }}</td>
+                        <td><img src="{{ product.image }}" alt="{{ product.name }}" class="product-image"></td>
+                        <td>{{ product.name }}</td>
+                        <td>{{ product.price }} ₽</td>
+                        <td>{{ product.category }}</td>
+                        <td>{{ product.manufacturer }}</td>
+                        <td>{{ product.stock }} шт.</td>
+                        <td>
+                            <button class="btn-danger" onclick="deleteProduct({{ product.id }}, '{{ product.name }}')">🗑️ Удалить</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal для добавления товара -->
+    <div class="modal" id="addModal">
+        <div class="modal-content">
+            <span class="close" onclick="closeAddModal()">&times;</span>
+            <h2>Добавить новый товар</h2>
+            <form id="addForm" onsubmit="addProduct(event)">
+                <div class="form-group">
+                    <label>Название:</label>
+                    <input type="text" id="productName" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label>Цена (₽):</label>
+                    <input type="number" id="productPrice" class="form-input" required min="0">
+                </div>
+                <div class="form-group">
+                    <label>Описание:</label>
+                    <textarea id="productDescription" class="form-textarea" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Категория:</label>
+                    <input type="text" id="productCategory" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label>Совместимость:</label>
+                    <input type="text" id="productCompatibility" class="form-input" required placeholder="BMW, Mercedes, Audi">
+                </div>
+                <div class="form-group">
+                    <label>Производитель:</label>
+                    <input type="text" id="productManufacturer" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label>Гарантия:</label>
+                    <input type="text" id="productWarranty" class="form-input" required placeholder="2 года">
+                </div>
+                <div class="form-group">
+                    <label>Остаток (шт):</label>
+                    <input type="number" id="productStock" class="form-input" required min="0">
+                </div>
+                <div class="form-group">
+                    <label>URL изображения:</label>
+                    <input type="text" id="productImage" class="form-input" required placeholder="/static/img/product.svg">
+                </div>
+                <div id="addError" class="error-message"></div>
+                <div id="addSuccess" class="success-message"></div>
+                <button type="submit" class="btn">Добавить товар</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openAddModal() {
+            document.getElementById('addModal').classList.add('active');
+        }
+
+        function closeAddModal() {
+            document.getElementById('addModal').classList.remove('active');
+            document.getElementById('addForm').reset();
+            document.getElementById('addError').classList.remove('show');
+            document.getElementById('addSuccess').classList.remove('show');
+        }
+
+        async function addProduct(event) {
+            event.preventDefault();
+
+            const data = {
+                name: document.getElementById('productName').value,
+                price: document.getElementById('productPrice').value,
+                description: document.getElementById('productDescription').value,
+                category: document.getElementById('productCategory').value,
+                compatibility: document.getElementById('productCompatibility').value,
+                manufacturer: document.getElementById('productManufacturer').value,
+                warranty: document.getElementById('productWarranty').value,
+                stock: document.getElementById('productStock').value,
+                image: document.getElementById('productImage').value
+            };
+
+            const errorDiv = document.getElementById('addError');
+            const successDiv = document.getElementById('addSuccess');
+
+            errorDiv.classList.remove('show');
+            successDiv.classList.remove('show');
+
+            try {
+                const response = await fetch('/api/admin/add-product', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    successDiv.textContent = 'Товар успешно добавлен!';
+                    successDiv.classList.add('show');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    errorDiv.textContent = result.message || 'Ошибка добавления товара';
+                    errorDiv.classList.add('show');
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Ошибка сервера';
+                errorDiv.classList.add('show');
+            }
+        }
+
+        async function deleteProduct(id, name) {
+            if (!confirm(`Вы уверены, что хотите удалить товар "${name}"?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/admin/delete-product/${id}`, {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('Товар успешно удален!');
+                    location.reload();
+                } else {
+                    alert(result.message || 'Ошибка удаления товара');
+                }
+            } catch (error) {
+                alert('Ошибка сервера');
+            }
+        }
+
+        window.onclick = function(event) {
+            const modal = document.getElementById('addModal');
+            if (event.target === modal) {
+                closeAddModal();
+            }
+        }
+    </script>
+</body>
+</html>

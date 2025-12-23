@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ панель - Автосервисы</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .admin-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        header h1 {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        header .nav-links {
+            display: flex;
+            gap: 15px;
+        }
+
+        header a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        header a:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .content-card {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-edit {
+            background: #3498db;
+            padding: 8px 16px;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+
+        .btn-edit:hover {
+            background: #2980b9;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+            box-shadow: 0 5px 15px rgba(231, 76, 60, 0.4);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            overflow-y: auto;
+        }
+
+        .modal.active {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            position: relative;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .close {
+            position: absolute;
+            right: 20px;
+            top: 15px;
+            font-size: 32px;
+            font-weight: bold;
+            color: #999;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .close:hover {
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+        }
+
+        .form-input, .form-textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+            font-family: inherit;
+        }
+
+        .form-textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .form-input:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .error-message, .success-message {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .error-message {
+            color: #e74c3c;
+            background: #ffe6e6;
+        }
+
+        .success-message {
+            color: #27ae60;
+            background: #e6ffe6;
+        }
+
+        .error-message.show, .success-message.show {
+            display: block;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <header>
+            <h1>🔧 Управление автосервисами</h1>
+            <div class="nav-links">
+                <a href="/admin/users">👥 Пользователи</a>
+                <a href="/admin/products">📦 Товары</a>                <a href="/admin/orders">📋 Заказы</a>                <a href="/catalog">🛒 Каталог</a>
+                <a href="/">🏠 Главная</a>
+                <a href="/logout">🚪 Выход</a>
+            </div>
+        </header>
+
+        <div class="content-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div>
+                    <div class="stat-value">{{ services|length }}</div>
+                    <div class="stat-label">Всего автосервисов</div>
+                </div>
+                <button class="btn" onclick="openAddModal()">➕ Добавить автосервис</button>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Название</th>
+                        <th>Адрес</th>
+                        <th>Телефон</th>
+                        <th>Услуги</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for service in services %}
+                    <tr>
+                        <td>{{ service.id }}</td>
+                        <td>{{ service.name }}</td>
+                        <td>{{ service.address }}</td>
+                        <td>{{ service.phone }}</td>
+                        <td>{{ service.services }}</td>
+                        <td>
+                            <button class="btn-edit" onclick="openEditModal({{ service.id }}, '{{ service.name }}', '{{ service.address }}', '{{ service.phone }}', '{{ service.services }}', '{{ service.description }}')">✏️ Изменить</button>
+                            <button class="btn-danger" onclick="deleteService({{ service.id }}, '{{ service.name }}')">🗑️ Удалить</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal для добавления -->
+    <div class="modal" id="addModal">
+        <div class="modal-content">
+            <span class="close" onclick="closeAddModal()">&times;</span>
+            <h2>Добавить новый автосервис</h2>
+            <form id="addForm" onsubmit="addService(event)">
+                <div class="form-group">
+                    <label>Название:</label>
+                    <input type="text" id="serviceName" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label>Адрес:</label>
+                    <input type="text" id="serviceAddress" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label>Телефон:</label>
+                    <input type="text" id="servicePhone" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label>Услуги (через запятую):</label>
+                    <input type="text" id="serviceServices" class="form-input" required placeholder="Ремонт, Диагностика, ТО">
+                </div>
+                <div class="form-group">
+                    <label>Описание:</label>
+                    <textarea id="serviceDescription" class="form-textarea"></textarea>
+                </div>
+                <div id="addError" class="error-message"></div>
+                <div id="addSuccess" class="success-message"></div>
+                <button type="submit" class="btn">Добавить автосервис</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal для редактирования -->
+    <div class="modal" id="editModal">
+        <div class="modal-content">
+            <span class="close" onclick="closeEditModal()">&times;</span>
+            <h2>Редактировать автосервис</h2>
+            <form id="editForm" onsubmit="updateService(event)">
+                <input type="hidden" id="editServiceId">
+                <div class="form-group">
+                    <label>Название:</label>
+                    <input type="text" id="editServiceName" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label>Адрес:</label>
+                    <input type="text" id="editServiceAddress" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label>Телефон:</label>
+                    <input type="text" id="editServicePhone" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label>Услуги (через запятую):</label>
+                    <input type="text" id="editServiceServices" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label>Описание:</label>
+                    <textarea id="editServiceDescription" class="form-textarea"></textarea>
+                </div>
+                <div id="editError" class="error-message"></div>
+                <div id="editSuccess" class="success-message"></div>
+                <button type="submit" class="btn">Сохранить изменения</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openAddModal() {
+            document.getElementById('addModal').classList.add('active');
+        }
+
+        function closeAddModal() {
+            document.getElementById('addModal').classList.remove('active');
+            document.getElementById('addForm').reset();
+            document.getElementById('addError').classList.remove('show');
+            document.getElementById('addSuccess').classList.remove('show');
+        }
+
+        function openEditModal(id, name, address, phone, services, description) {
+            document.getElementById('editServiceId').value = id;
+            document.getElementById('editServiceName').value = name;
+            document.getElementById('editServiceAddress').value = address;
+            document.getElementById('editServicePhone').value = phone;
+            document.getElementById('editServiceServices').value = services;
+            document.getElementById('editServiceDescription').value = description || '';
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.remove('active');
+            document.getElementById('editForm').reset();
+            document.getElementById('editError').classList.remove('show');
+            document.getElementById('editSuccess').classList.remove('show');
+        }
+
+        async function addService(event) {
+            event.preventDefault();
+
+            const data = {
+                name: document.getElementById('serviceName').value,
+                address: document.getElementById('serviceAddress').value,
+                phone: document.getElementById('servicePhone').value,
+                services: document.getElementById('serviceServices').value,
+                description: document.getElementById('serviceDescription').value
+            };
+
+            const errorDiv = document.getElementById('addError');
+            const successDiv = document.getElementById('addSuccess');
+
+            errorDiv.classList.remove('show');
+            successDiv.classList.remove('show');
+
+            try {
+                const response = await fetch('/api/admin/add-service', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    successDiv.textContent = 'Автосервис успешно добавлен!';
+                    successDiv.classList.add('show');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    errorDiv.textContent = result.message || 'Ошибка добавления';
+                    errorDiv.classList.add('show');
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Ошибка сервера';
+                errorDiv.classList.add('show');
+            }
+        }
+
+        async function updateService(event) {
+            event.preventDefault();
+
+            const id = document.getElementById('editServiceId').value;
+            const data = {
+                name: document.getElementById('editServiceName').value,
+                address: document.getElementById('editServiceAddress').value,
+                phone: document.getElementById('editServicePhone').value,
+                services: document.getElementById('editServiceServices').value,
+                description: document.getElementById('editServiceDescription').value
+            };
+
+            const errorDiv = document.getElementById('editError');
+            const successDiv = document.getElementById('editSuccess');
+
+            errorDiv.classList.remove('show');
+            successDiv.classList.remove('show');
+
+            try {
+                const response = await fetch(`/api/admin/update-service/${id}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    successDiv.textContent = 'Автосервис успешно обновлен!';
+                    successDiv.classList.add('show');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    errorDiv.textContent = result.message || 'Ошибка обновления';
+                    errorDiv.classList.add('show');
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Ошибка сервера';
+                errorDiv.classList.add('show');
+            }
+        }
+
+        async function deleteService(id, name) {
+            if (!confirm(`Вы уверены, что хотите удалить автосервис "${name}"?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/admin/delete-service/${id}`, {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('Автосервис успешно удален!');
+                    location.reload();
+                } else {
+                    alert(result.message || 'Ошибка удаления');
+                }
+            } catch (error) {
+                alert('Ошибка сервера');
+            }
+        }
+
+        window.onclick = function(event) {
+            const addModal = document.getElementById('addModal');
+            const editModal = document.getElementById('editModal');
+            if (event.target === addModal) closeAddModal();
+            if (event.target === editModal) closeEditModal();
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Наши магазины запчастей</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='carsell24x7-main/css/style.css') }}">
+</head>
+
+<body>
+{% set banner_img = url_for('static', filename='carsell24x7-main/image/banner.jpg') %}
+
+    <header class="header">
+        <div id="menu-btn" class="fa-solid fa-bars"></div>
+        <a href="/" class="header__logo">
+            <img src="{{ url_for('static', filename='carsell24x7-main/image/logo.png') }}" alt="">
+        </a>
+
+        <nav class="navbar">
+            <a href="/">Главная</a>
+            <a href="#locations">Локации</a>
+            <a href="#services">Услуги</a>
+            <a href="/catalog">Каталог</a>
+            <a href="#reviews">Отзывы</a>
+            <a href="#contact">Контакты</a>
+        </nav>
+
+        <div id="login-btn">
+            <button type="button" class="btn">Личный кабинет</button>
+            <i class="fa-regular fa-user"></i>
+        </div>
+    </header>
+
+    <section class="home" id="home">
+        <div class="content">
+            <h1>Наши магазины автозапчастей</h1>
+            <p>Качественные запчасти для вашего автомобиля по всей России</p>
+        </div>
+    </section>
+
+    <section class="vehicles" id="locations">
+        <h1 class="heading">Наши магазины</h1>
+        <div class="vehicles-container">
+            <div class="vehicle-item">
+                <img src="{{ url_for('static', filename='img/shop1.svg') }}" alt="Магазин">
+                <h3>Магазин в Уфе</h3>
+                <p>ул. Карла Маркса, 12<br>Пн-Сб: 9:00-20:00, Вс: 10:00-18:00</p>
+            </div>
+            <div class="vehicle-item">
+                <img src="{{ url_for('static', filename='img/shop2.svg') }}" alt="Магазин">
+                <h3>Магазин в Москве</h3>
+                <p>ул. Ленина, 45<br>Пн-Вс: 8:00-22:00</p>
+            </div>
+            <div class="vehicle-item">
+                <img src="{{ url_for('static', filename='img/shop3.svg') }}" alt="Магазин">
+                <h3>Магазин в Санкт-Петербурге</h3>
+                <p>Невский проспект, 100<br>Пн-Сб: 9:00-21:00</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="services" id="services">
+        <h1 class="heading">Наши Услуги</h1>
+        <div class="services-container">
+            <div class="service-item">
+                <img src="{{ url_for('static', filename='img/service_parts.svg') }}" alt="Запчасти" style="width: 80px; height: 80px; margin-bottom: 15px;">
+                <h3>Продажа запчастей</h3>
+                <p>Широкий ассортимент оригинальных и неоригинальных запчастей</p>
+            </div>
+            <div class="service-item">
+                <img src="{{ url_for('static', filename='img/service_consultation.svg') }}" alt="Консультация" style="width: 80px; height: 80px; margin-bottom: 15px;">
+                <h3>Консультация специалистов</h3>
+                <p>Профессиональная помощь в подборе запчастей</p>
+            </div>
+            <div class="service-item">
+                <img src="{{ url_for('static', filename='img/service_warranty.svg') }}" alt="Гарантия" style="width: 80px; height: 80px; margin-bottom: 15px;">
+                <h3>Гарантия качества</h3>
+                <p>Официальная гарантия на все запчасти</p>
+            </div>
+            <div class="service-item">
+                <img src="{{ url_for('static', filename='img/service_delivery.svg') }}" alt="Доставка" style="width: 80px; height: 80px; margin-bottom: 15px;">
+                <h3>Доставка</h3>
+                <p>Быстрая доставка по всей России</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="featured" id="featured">
+        <h1 class="heading">Популярные запчасти</h1>
+        <div class="featured-container">
+            <div class="featured-item">
+                <img src="{{ url_for('static', filename='img/engine.svg') }}" alt="">
+                <h3>Двигатель V8 5.0L</h3>
+                <p>Мощный бензиновый двигатель с турбонаддувом</p>
+            </div>
+            <div class="featured-item">
+                <img src="{{ url_for('static', filename='img/turbo.svg') }}" alt="">
+                <h3>Турбокомпрессор Garrett</h3>
+                <p>Высокопроизводительный турбокомпрессор</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="reviews" id="reviews">
+        <h1 class="heading">Отзывы клиентов</h1>
+        <div class="reviews-container">
+            <div class="review-item">
+                <p>"Отличный магазин запчастей! Нашел все что нужно для своего BMW."</p>
+                <h4>- Иван Петров</h4>
+            </div>
+            <div class="review-item">
+                <p>"Быстрая доставка и качественные запчасти. Рекомендую!"</p>
+                <h4>- Мария Сидорова</h4>
+            </div>
+        </div>
+    </section>
+
+    <section class="contact" id="contact">
+        <h1 class="heading">Свяжитесь с нами</h1>
+        <div class="contact-info">
+            <p>Телефон: <strong>8-800-555-55-55</strong></p>
+            <p>Email: <strong>info@avtozapchasti.ru</strong></p>
+            <p>Адрес: <strong>Уфа, ул. Карла Маркса, 12</strong></p>
+            <p>Время работы: <strong>Пн-Сб: 9:00 - 20:00, Вс: 10:00 - 18:00</strong></p>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="footer-content">
+            <p>&copy; 2024 Все права защищены. Магазин автозапчастей "Ваш выбор"</p>
+        </div>
+    </footer>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .header {
+            background: #222;
+            color: white;
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+        }
+
+        .header__logo img {
+            max-height: 50px;
+        }
+
+        .navbar {
+            display: flex;
+            gap: 2rem;
+        }
+
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            transition: 0.3s;
+        }
+
+        .navbar a:hover {
+            color: #ff6b35;
+        }
+
+        .home {
+            background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('{{ banner_img }}');
+            background-size: cover;
+            background-position: center;
+            color: white;
+            text-align: center;
+            padding: 8rem 2rem;
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .home .content h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .home .content p {
+            font-size: 1.2rem;
+        }
+
+        section {
+            padding: 3rem 2rem;
+        }
+
+        .heading {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 2rem;
+            color: #222;
+        }
+
+        .vehicles-container,
+        .services-container,
+        .featured-container,
+        .reviews-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .vehicle-item,
+        .service-item,
+        .featured-item,
+        .review-item {
+            background: #f5f5f5;
+            padding: 1.5rem;
+            border-radius: 5px;
+            text-align: center;
+            transition: 0.3s;
+        }
+
+        .vehicle-item:hover,
+        .featured-item:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .vehicle-item img,
+        .featured-item img {
+            width: 100%;
+            max-height: 250px;
+            object-fit: cover;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+        }
+
+        .vehicle-item h3,
+        .service-item h3,
+        .featured-item h3 {
+            margin-bottom: 0.5rem;
+            color: #222;
+        }
+
+        .vehicle-item p,
+        .service-item p,
+        .featured-item p {
+            color: #666;
+        }
+
+        .services {
+            background: #f9f9f9;
+        }
+
+        .contact-info {
+            background: #f5f5f5;
+            padding: 2rem;
+            border-radius: 5px;
+            max-width: 600px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .contact-info p {
+            margin: 1rem 0;
+            font-size: 1.1rem;
+        }
+
+        .footer {
+            background: #222;
+            color: white;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .btn {
+            background: #ff6b35;
+            color: white;
+            padding: 0.7rem 1.5rem;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .btn:hover {
+            background: #e55a2b;
+        }
+
+        @media (max-width: 768px) {
+            .navbar {
+                display: none;
+            }
+
+            .home .content h1 {
+                font-size: 1.5rem;
+            }
+
+            .heading {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+
+</body>
+
+</html>

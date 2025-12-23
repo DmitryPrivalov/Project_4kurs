@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- Фон -->
+  <rect width="200" height="200" fill="#E8F4F8"/>
+  
+  <!-- Специалист (голова) -->
+  <circle cx="100" cy="70" r="25" fill="#FFD4A3"/>
+  
+  <!-- Каска/шапка -->
+  <ellipse cx="100" cy="50" rx="28" ry="15" fill="#FF6B35"/>
+  
+  <!-- Тело -->
+  <rect x="75" y="95" width="50" height="60" fill="#4A90E2" rx="10"/>
+  
+  <!-- Руки -->
+  <rect x="55" y="100" width="20" height="40" fill="#4A90E2" rx="8"/>
+  <rect x="125" y="100" width="20" height="40" fill="#4A90E2" rx="8"/>
+  
+  <!-- Буфер обмена в руке -->
+  <rect x="130" y="110" width="30" height="40" fill="#F5F5F5" rx="3"/>
+  <rect x="130" y="110" width="30" height="8" fill="#808080" rx="2"/>
+  <line x1="135" y1="125" x2="155" y2="125" stroke="#4A90E2" stroke-width="2"/>
+  <line x1="135" y1="133" x2="155" y2="133" stroke="#4A90E2" stroke-width="2"/>
+  <line x1="135" y1="141" x2="150" y2="141" stroke="#4A90E2" stroke-width="2"/>
+  
+  <!-- Гаечный ключ в другой руке -->
+  <rect x="48" y="120" width="8" height="35" fill="#C0C0C0" rx="2"/>
+  <circle cx="52" cy="120" r="8" fill="#A9A9A9"/>
+  
+  <!-- Облако с вопросом (консультация) -->
+  <ellipse cx="50" cy="40" rx="20" ry="15" fill="#FFE4B5"/>
+  <circle cx="35" cy="45" r="10" fill="#FFE4B5"/>
+  <circle cx="60" cy="35" r="8" fill="#FFE4B5"/>
+  <text x="50" y="47" font-family="Arial" font-size="18" fill="#FF6347" text-anchor="middle" font-weight="bold">?</text>
+</svg>
