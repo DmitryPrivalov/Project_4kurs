@@ -396,6 +396,271 @@ def logout():
     session.clear()
     return redirect(url_for('index'))
 
+@app.route('/api/auth/login', methods=['POST'])
+def api_login():
+    """
+    Авторизация пользователя
+    ---
+    tags:
+      - Authentication
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - login
+            - password
+          properties:
+            login:
+              type: string
+              description: Логин пользователя
+              example: "admin"
+            password:
+              type: string
+              description: Пароль пользователя
+              example: "admin"
+    responses:
+      200:
+        description: Успешная авторизация
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: "Авторизация успешна"
+            user:
+              type: object
+              properties:
+                id:
+                  type: integer
+                login:
+                  type: string
+                role:
+                  type: string
+      401:
+        description: Неверные учетные данные
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: "Неправильный логин или пароль"
+      400:
+        description: Отсутствуют обязательные поля
+    """
+    data = request.get_json()
+    login = data.get('login', '').strip()
+    password = data.get('password', '').strip()
+    
+    if not login or not password:
+        return jsonify({'success': False, 'message': 'Заполните все поля'}), 400
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT id, login, role FROM users WHERE login = ? AND password = ?', (login, password))
+    user = cursor.fetchone()
+    conn.close()
+    
+    if user:
+        session['user_id'] = user['id']
+        session['login'] = user['login']
+        session['role'] = user['role']
+        return jsonify({
+            'success': True,
+            'message': 'Авторизация успешна',
+            'user': {
+                'id': user['id'],
+                'login': user['login'],
+                'role': user['role']
+            }
+        })
+    else:
+        return jsonify({'success': False, 'message': 'Неправильный логин или пароль'}), 401
+
+@app.route('/api/auth/register', methods=['POST'])
+def api_register():
+    """
+    Регистрация нового пользователя
+    ---
+    tags:
+      - Authentication
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - login
+            - password
+            - email
+          properties:
+            login:
+              type: string
+              description: Логин (3-20 символов, только буквы и цифры)
+              example: "newuser"
+            password:
+              type: string
+              description: Пароль (минимум 6 символов)
+              example: "password123"
+            email:
+              type: string
+              description: Email адрес
+              example: "user@example.com"
+    responses:
+      201:
+        description: Успешная регистрация
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: "Регистрация успешна"
+            user:
+              type: object
+              properties:
+                id:
+                  type: integer
+                login:
+                  type: string
+      400:
+        description: Ошибка валидации данных
+      409:
+        description: Пользователь уже существует
+    """
+    data = request.get_json()
+    login = data.get('login', '').strip()
+    password = data.get('password', '').strip()
+    email = data.get('email', '').strip()
+    
+    if not login or not password or not email:
+        return jsonify({'success': False, 'message': 'Заполните все поля'}), 400
+    
+    # Validate login
+    valid, msg = validate_login(login)
+    if not valid:
+        return jsonify({'success': False, 'message': msg}), 400
+    
+    # Validate password length
+    if len(password) < 6:
+        return jsonify({'success': False, 'message': 'Пароль должен быть не менее 6 символов'}), 400
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # Check if login exists
+    cursor.execute('SELECT id FROM users WHERE login = ?', (login,))
+    if cursor.fetchone():
+        conn.close()
+        return jsonify({'success': False, 'message': 'Этот логин уже занят'}), 409
+    
+    # Check if email exists
+    cursor.execute('SELECT id FROM users WHERE email = ?', (email,))
+    if cursor.fetchone():
+        conn.close()
+        return jsonify({'success': False, 'message': 'Этот email уже зарегистрирован'}), 409
+    
+    # Register user
+    try:
+        cursor.execute(
+            'INSERT INTO users (login, password, email) VALUES (?, ?, ?)',
+            (login, password, email)
+        )
+        conn.commit()
+        user_id = cursor.lastrowid
+        conn.close()
+        
+        # Auto-login after registration
+        session['user_id'] = user_id
+        session['login'] = login
+        session['role'] = 'user'
+        
+        return jsonify({
+            'success': True,
+            'message': 'Регистрация успешна',
+            'user': {
+                'id': user_id,
+                'login': login
+            }
+        }), 201
+    except sqlite3.Error as e:
+        conn.close()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/auth/logout', methods=['POST'])
+def api_logout():
+    """
+    Выход из системы
+    ---
+    tags:
+      - Authentication
+    security:
+      - SessionAuth: []
+    responses:
+      200:
+        description: Успешный выход
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: "Выход выполнен успешно"
+    """
+    session.clear()
+    return jsonify({'success': True, 'message': 'Выход выполнен успешно'})
+
+@app.route('/api/auth/status', methods=['GET'])
+def api_auth_status():
+    """
+    Проверить статус авторизации
+    ---
+    tags:
+      - Authentication
+    responses:
+      200:
+        description: Статус авторизации
+        schema:
+          type: object
+          properties:
+            authenticated:
+              type: boolean
+              example: true
+            user:
+              type: object
+              properties:
+                id:
+                  type: integer
+                login:
+                  type: string
+                role:
+                  type: string
+    """
+    if 'user_id' in session:
+        return jsonify({
+            'authenticated': True,
+            'user': {
+                'id': session.get('user_id'),
+                'login': session.get('login'),
+                'role': session.get('role')
+            }
+        })
+    else:
+        return jsonify({'authenticated': False})
+
 @app.route('/api/order', methods=['POST'])
 def create_order():
     """
