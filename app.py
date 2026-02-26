@@ -7,8 +7,8 @@ from datetime import datetime
 from functools import wraps
 from flasgger import Swagger
 
-# Create app with proper static path
-app = Flask(__name__, static_folder='static', static_url_path='/static')
+# Create app
+app = Flask(__name__)
 app.secret_key = 'your-secret-key-change-this'
 
 # Initialize Swagger
