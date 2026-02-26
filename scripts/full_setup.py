@@ -35,6 +35,20 @@ def run_py(script, args=None, check=True):
 
 def main():
     print('\n=== Full setup start ===')
+    # If prebuilt archive exists, restore DB and skip heavy generation
+    prebuilt_db_gz = os.path.join(ROOT, 'prebuilt', 'data.db.gz')
+    if os.path.exists(prebuilt_db_gz):
+        print('Found prebuilt data archive. Restoring data.db from prebuilt/data.db.gz')
+        try:
+            import gzip, shutil
+            with gzip.open(prebuilt_db_gz, 'rb') as f_in:
+                with open(os.path.join(ROOT, 'data.db'), 'wb') as f_out:
+                    shutil.copyfileobj(f_in, f_out)
+            print('Restored data.db — skipping generation and population')
+            return True
+        except Exception as e:
+            print('Failed to restore prebuilt DB:', e)
+            # continue with normal flow
     # 1. init_db
     run_py('init_db.py')
 
