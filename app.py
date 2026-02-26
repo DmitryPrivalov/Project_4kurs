@@ -230,10 +230,25 @@ reco_engine = None
 def get_reco_engine():
     global reco_engine
     if reco_engine is None and RecommendationEngine is not None:
+        # Prefer loading prebuilt serialized engine for faster startup
         try:
-            reco_engine = RecommendationEngine('data.db')
+            import joblib
+            prebuilt = os.path.join(os.path.dirname(__file__), 'prebuilt', 'engine.joblib')
+            if os.path.exists(prebuilt):
+                try:
+                    reco_engine = joblib.load(prebuilt)
+                    # ensure db_path points to data.db in repo root
+                    reco_engine.db_path = 'data.db'
+                except Exception:
+                    reco_engine = None
         except Exception:
-            reco_engine = None
+            pass
+
+        if reco_engine is None:
+            try:
+                reco_engine = RecommendationEngine('data.db')
+            except Exception:
+                reco_engine = None
     return reco_engine
 
 def validate_login(login):
