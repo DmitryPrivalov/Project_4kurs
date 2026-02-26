@@ -843,11 +843,62 @@ def api_admin_model_status():
         return jsonify({'built': False})
 
     vocab_size = len(engine.tfidf.vocabulary_) if getattr(engine, 'tfidf', None) and getattr(engine.tfidf, 'vocabulary_', None) else 0
+    # try to expose current weights if available
+    weights = {}
+    try:
+      weights = {
+        'alpha': getattr(engine, 'alpha', 0.8),
+        'beta': getattr(engine, 'beta', 0.2),
+        'cat_weight': getattr(engine, 'cat_weight', 0.6)
+      }
+    except Exception:
+      weights = {}
     return jsonify({
         'built': True,
         'n_products': len(engine.products),
         'vocab_size': vocab_size
+      , 'weights': weights
     })
+
+
+  @app.route('/api/admin/weights', methods=['GET', 'POST'])
+  def api_admin_weights():
+    """Get or set weights for recommendation engine"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+      return jsonify({'error': 'no access'}), 403
+
+    cfg_path = os.path.join(os.path.dirname(__file__), 'reco_config.json')
+    if request.method == 'GET':
+      try:
+        with open(cfg_path, 'r', encoding='utf-8') as f:
+          import json
+          return jsonify(json.load(f))
+      except Exception:
+        return jsonify({'alpha': 0.8, 'beta': 0.2, 'cat_weight': 0.6})
+
+    # POST — update weights; accept {alpha,beta,cat_weight, rebuild}
+    data = request.get_json() or {}
+    alpha = float(data.get('alpha', 0.8))
+    beta = float(data.get('beta', 0.2))
+    cat_weight = float(data.get('cat_weight', 0.6))
+    try:
+      import json
+      with open(cfg_path, 'w', encoding='utf-8') as f:
+        json.dump({'alpha': alpha, 'beta': beta, 'cat_weight': cat_weight}, f)
+    except Exception as e:
+      return jsonify({'success': False, 'message': str(e)}), 500
+
+    # optionally rebuild model immediately
+    if data.get('rebuild', True):
+      engine = get_reco_engine()
+      if engine is not None:
+        try:
+          engine._load_weights()
+          engine.refresh()
+        except Exception:
+          pass
+
+    return jsonify({'success': True, 'alpha': alpha, 'beta': beta, 'cat_weight': cat_weight})
 
 
 @app.route('/api/admin/calculations/<int:product_id>')

@@ -4,6 +4,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import linear_kernel
 from scipy.sparse import hstack
 import numpy as np
+import json
+import os
 
 
 class RecommendationEngine:
@@ -13,7 +15,24 @@ class RecommendationEngine:
         self.products = []
         self.tfidf = None
         self.matrix = None
+        # default weights
+        self.alpha = 0.8
+        self.beta = 0.2
+        self.cat_weight = 0.6
+        self._load_weights()
         self._build()
+
+    def _load_weights(self):
+        try:
+            cfg_path = os.path.join(os.path.dirname(__file__), 'reco_config.json')
+            if os.path.exists(cfg_path):
+                with open(cfg_path, 'r', encoding='utf-8') as f:
+                    cfg = json.load(f)
+                    self.alpha = float(cfg.get('alpha', self.alpha))
+                    self.beta = float(cfg.get('beta', self.beta))
+                    self.cat_weight = float(cfg.get('cat_weight', self.cat_weight))
+        except Exception:
+            pass
 
     def _connect(self):
         conn = sqlite3.connect(self.db_path)
@@ -81,10 +100,9 @@ class RecommendationEngine:
         # give higher weight to text and smaller to categorical
         # to scale sparse matrix, multiply data by factor
         try:
-            # scale categorical vectors by 0.6 relative weight
-            cat_weight = 0.6
+            # scale categorical vectors by configured cat_weight
             from scipy.sparse import csr_matrix
-            matrix_cat = matrix_cat.multiply(cat_weight)
+            matrix_cat = matrix_cat.multiply(self.cat_weight)
         except Exception:
             pass
 
@@ -126,8 +144,9 @@ class RecommendationEngine:
         results = []
         # compute final score combining text similarity and popularity
         max_pop = max((p.get('popularity', 0) for p in self.products), default=1)
-        alpha = 0.8  # weight for text similarity
-        beta = 0.2   # weight for popularity
+        # use configured weights
+        alpha = getattr(self, 'alpha', 0.8)
+        beta = getattr(self, 'beta', 0.2)
         for i in top_indices:
             cos = float(cosine_similarities[i])
             pop = float(self.products[i].get('popularity', 0))

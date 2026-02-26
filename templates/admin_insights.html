@@ -43,8 +43,19 @@
                     <div style="width:260px;text-align:right;display:flex;flex-direction:column;gap:8px;align-items:flex-end">
                         <div style="text-align:right">
                             <div class="tiny">Model status:</div>
-                            <div id="modelStatus" class="badge">Загрузка...</div>
+                                <div id="modelStatus" class="badge">Загрузка...</div>
                         </div>
+                            <div style="margin-top:8px;text-align:right;width:100%">
+                                <div style="display:flex;gap:6px;align-items:center;justify-content:flex-end">
+                                    <label class="tiny" for="alphaInput">α</label>
+                                    <input id="alphaInput" type="number" step="0.01" min="0" max="1" style="width:70px" />
+                                    <label class="tiny" for="betaInput">β</label>
+                                    <input id="betaInput" type="number" step="0.01" min="0" max="1" style="width:70px" />
+                                    <label class="tiny" for="catWeightInput">cat</label>
+                                    <input id="catWeightInput" type="number" step="0.01" min="0" max="2" style="width:70px" />
+                                    <button id="saveWeights" class="tab" style="background:#6c757d;color:white;padding:6px 8px;border-radius:8px;border:none;cursor:pointer">Save weights</button>
+                                </div>
+                            </div>
                         <div>
                             <button id="rebuildBtn" class="tab" style="background:#4455cc;color:white;padding:8px 12px;border-radius:8px;border:none;cursor:pointer">Rebuild model</button>
                         </div>
@@ -165,6 +176,7 @@
 
         // Poll model status until ready; handle access errors
         let _modelStatusTimer = null;
+        let weights = { alpha: 0.8, beta: 0.2, cat_weight: 0.6 };
         async function loadModelStatus(){
             try{
                 const resModelStatus = await fetch('/api/admin/model-status');
@@ -177,6 +189,13 @@
                 if(j && j.built){
                     document.getElementById('modelStatus').textContent = `built • ${j.n_products} products`;
                     document.getElementById('vocabSize').textContent = j.vocab_size;
+                    if(j.weights){
+                        weights = j.weights;
+                        // update inputs
+                        try{ document.getElementById('alphaInput').value = weights.alpha; }catch(e){}
+                        try{ document.getElementById('betaInput').value = weights.beta; }catch(e){}
+                        try{ document.getElementById('catWeightInput').value = weights.cat_weight; }catch(e){}
+                    }
                     // stop polling when ready
                     if(_modelStatusTimer){ clearInterval(_modelStatusTimer); _modelStatusTimer = null; }
                     // refresh dependent widgets
@@ -194,6 +213,22 @@
                 document.getElementById('vocabSize').textContent = '—';
             }
         }
+
+        // Save weights handler
+        document.getElementById('saveWeights').onclick = async () => {
+            const a = parseFloat(document.getElementById('alphaInput').value || 0.8);
+            const b = parseFloat(document.getElementById('betaInput').value || 0.2);
+            const c = parseFloat(document.getElementById('catWeightInput').value || 0.6);
+            const resp = await fetch('/api/admin/weights', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({alpha: a, beta: b, cat_weight: c, rebuild: true}) });
+            const j = await resp.json();
+            if(j && j.success){
+                alert('Weights saved and model rebuilt');
+                weights = { alpha: a, beta: b, cat_weight: c };
+                await loadModelStatus();
+            } else {
+                alert('Failed to save weights');
+            }
+        };
 
         async function loadCalculations(page=1){
             const id = prodSelect.value;
@@ -222,7 +257,8 @@
 
             // visual cards (show up to 12 from current page)
             const visual = document.getElementById('visualRecs'); visual.innerHTML = '';
-            const alpha = 0.8, beta = 0.2;
+            const alpha = (weights && weights.alpha) ? weights.alpha : 0.8;
+            const beta = (weights && weights.beta) ? weights.beta : 0.2;
             (j.items||[]).slice(0,12).forEach(it=>{
                 const cos = Math.max(0, it.cosine || 0);
                 const pop_norm = it.pop_norm || 0;
