@@ -21,6 +21,10 @@ pip install flask
 ```bash
 python app.py
 ```
+ 
+CI integration
+--------------
+This repository includes a GitHub Actions workflow to build the database and export prebuilt artifacts. See `README_SETUP.md` for instructions how to enable it and push changes.
 
 Приложение запустится на `http://localhost:5000`
 

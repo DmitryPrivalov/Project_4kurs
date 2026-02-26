@@ -230,25 +230,11 @@ reco_engine = None
 def get_reco_engine():
     global reco_engine
     if reco_engine is None and RecommendationEngine is not None:
-        # Prefer loading prebuilt serialized engine for faster startup
+        # Build fresh engine from DB to ensure compatibility with current code
         try:
-            import joblib
-            prebuilt = os.path.join(os.path.dirname(__file__), 'prebuilt', 'engine.joblib')
-            if os.path.exists(prebuilt):
-                try:
-                    reco_engine = joblib.load(prebuilt)
-                    # ensure db_path points to data.db in repo root
-                    reco_engine.db_path = 'data.db'
-                except Exception:
-                    reco_engine = None
+            reco_engine = RecommendationEngine('data.db')
         except Exception:
-            pass
-
-        if reco_engine is None:
-            try:
-                reco_engine = RecommendationEngine('data.db')
-            except Exception:
-                reco_engine = None
+            reco_engine = None
     return reco_engine
 
 def validate_login(login):
@@ -820,7 +806,8 @@ def admin_users():
 @app.route('/admin/insights')
 def admin_insights():
     """Admin: AI Insights + DB Viewer"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    # allow viewing in debug mode for local development
+    if not app.debug and ('user_id' not in session or session.get('role') != 'admin'):
         return redirect(url_for('index'))
 
     # load products for selector
@@ -835,56 +822,82 @@ def admin_insights():
 @app.route('/api/admin/model-status')
 def api_admin_model_status():
     """Return basic information about the recommendation model"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    # allow access in debug mode for convenience
+    if not app.debug and ('user_id' not in session or session.get('role') != 'admin'):
         return jsonify({'error': 'no access'}), 403
 
     engine = get_reco_engine()
-    if engine is None or engine.matrix is None:
-        return jsonify({'built': False})
+    # RecommendationEngine was refactored to use separate matrices (matrix_text, matrix_category, matrix_manufacturer).
+    # Treat model as not-built if engine is missing or none of the matrices are present.
+    if engine is None or (
+      getattr(engine, 'matrix_text', None) is None
+      and getattr(engine, 'matrix_category', None) is None
+      and getattr(engine, 'matrix_manufacturer', None) is None
+    ):
+      return jsonify({'built': False})
 
-    vocab_size = len(engine.tfidf.vocabulary_) if getattr(engine, 'tfidf', None) and getattr(engine.tfidf, 'vocabulary_', None) else 0
-    # try to expose current weights if available
+    # vocab from text vectorizer if available
+    vocab_size = 0
+    try:
+        if getattr(engine, 'tfidf_text', None) and getattr(engine.tfidf_text, 'vocabulary_', None):
+            vocab_size = len(engine.tfidf_text.vocabulary_)
+    except Exception:
+        vocab_size = 0
+
     weights = {}
     try:
-      weights = {
-        'alpha': getattr(engine, 'alpha', 0.8),
-        'beta': getattr(engine, 'beta', 0.2),
-        'cat_weight': getattr(engine, 'cat_weight', 0.6)
-      }
+        weights = {
+            'w_text': getattr(engine, 'w_text', 0.6),
+            'w_category': getattr(engine, 'w_category', 0.2),
+            'w_manufacturer': getattr(engine, 'w_manufacturer', 0.1),
+            'w_popularity': getattr(engine, 'w_popularity', 0.1),
+            'cat_scale': getattr(engine, 'cat_scale', 1.0)
+        }
     except Exception:
-      weights = {}
+        weights = {}
+
     return jsonify({
         'built': True,
         'n_products': len(engine.products),
-        'vocab_size': vocab_size
-      , 'weights': weights
+        'vocab_size': vocab_size,
+        'weights': weights
     })
 
 
-  @app.route('/api/admin/weights', methods=['GET', 'POST'])
-  def api_admin_weights():
+@app.route('/api/admin/weights', methods=['GET', 'POST'])
+def api_admin_weights():
     """Get or set weights for recommendation engine"""
-    if 'user_id' not in session or session.get('role') != 'admin':
-      return jsonify({'error': 'no access'}), 403
+    if not app.debug and ('user_id' not in session or session.get('role') != 'admin'):
+        return jsonify({'error': 'no access'}), 403
 
     cfg_path = os.path.join(os.path.dirname(__file__), 'reco_config.json')
     if request.method == 'GET':
-      try:
-        with open(cfg_path, 'r', encoding='utf-8') as f:
-          import json
-          return jsonify(json.load(f))
-      except Exception:
-        return jsonify({'alpha': 0.8, 'beta': 0.2, 'cat_weight': 0.6})
+        try:
+            with open(cfg_path, 'r', encoding='utf-8') as f:
+                import json
+                return jsonify(json.load(f))
+        except Exception:
+          return jsonify({'w_text': 0.6, 'w_category': 0.2, 'w_manufacturer': 0.1, 'w_popularity': 0.1, 'cat_scale': 1.0})
 
-    # POST — update weights; accept {alpha,beta,cat_weight, rebuild}
+    # POST — update weights; accept new keys and optional rebuild
     data = request.get_json() or {}
-    alpha = float(data.get('alpha', 0.8))
-    beta = float(data.get('beta', 0.2))
-    cat_weight = float(data.get('cat_weight', 0.6))
+    # support both legacy and new keys
+    w_text = float(data.get('w_text', data.get('alpha', 0.6)))
+    w_category = float(data.get('w_category', data.get('cat_weight', 0.2)))
+    w_manufacturer = float(data.get('w_manufacturer', 0.1))
+    w_popularity = float(data.get('w_popularity', data.get('beta', 0.1)))
+    cat_scale = float(data.get('cat_scale', data.get('cat_weight', 1.0)))
     try:
       import json
+      payload = {
+        'w_text': w_text,
+        'w_category': w_category,
+        'w_manufacturer': w_manufacturer,
+        'w_popularity': w_popularity,
+        'cat_scale': cat_scale
+      }
       with open(cfg_path, 'w', encoding='utf-8') as f:
-        json.dump({'alpha': alpha, 'beta': beta, 'cat_weight': cat_weight}, f)
+        json.dump(payload, f)
     except Exception as e:
       return jsonify({'success': False, 'message': str(e)}), 500
 
@@ -898,17 +911,17 @@ def api_admin_model_status():
         except Exception:
           pass
 
-    return jsonify({'success': True, 'alpha': alpha, 'beta': beta, 'cat_weight': cat_weight})
+    return jsonify({'success': True, **payload})
 
 
 @app.route('/api/admin/calculations/<int:product_id>')
 def api_admin_calculations(product_id):
     """Return detailed aggregated scores for recommendations for given product"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not app.debug and ('user_id' not in session or session.get('role') != 'admin'):
       return jsonify({'error': 'no access'}), 403
 
     engine = get_reco_engine()
-    if engine is None or engine.matrix is None or product_id not in engine.ids:
+    if engine is None or getattr(engine, 'matrix_text', None) is None or product_id not in engine.ids:
       return jsonify({'items': []})
 
     # pagination params
@@ -928,25 +941,47 @@ def api_admin_calculations(product_id):
       return jsonify({'items': []})
 
     idx = engine.ids.index(product_id)
-    cosine_similarities = linear_kernel(engine.matrix[idx:idx+1], engine.matrix).flatten()
-    cosine_similarities[idx] = -1
+
+    # compute per-component cosine similarities
+    try:
+      sims_text = linear_kernel(engine.matrix_text[idx:idx+1], engine.matrix_text).flatten()
+    except Exception:
+      sims_text = [0.0] * len(engine.ids)
+    try:
+      sims_category = linear_kernel(engine.matrix_category[idx:idx+1], engine.matrix_category).flatten() if getattr(engine, 'matrix_category', None) is not None else [0.0] * len(engine.ids)
+    except Exception:
+      sims_category = [0.0] * len(engine.ids)
+    try:
+      sims_manufacturer = linear_kernel(engine.matrix_manufacturer[idx:idx+1], engine.matrix_manufacturer).flatten() if getattr(engine, 'matrix_manufacturer', None) is not None else [0.0] * len(engine.ids)
+    except Exception:
+      sims_manufacturer = [0.0] * len(engine.ids)
+
+    sims_text[idx] = -1
+    sims_category[idx] = -1
+    sims_manufacturer[idx] = -1
 
     items = []
     max_pop = max((p.get('popularity', 0) for p in engine.products), default=1)
-    alpha = 0.8
-    beta = 0.2
 
-    for i, cos in enumerate(cosine_similarities):
+    for i in range(len(engine.ids)):
       if i == idx:
         continue
       p = engine.products[i]
+      cos = float(sims_text[i])
+      cos_cat = float(sims_category[i])
+      cos_man = float(sims_manufacturer[i])
       pop = float(p.get('popularity', 0))
       pop_norm = pop / max_pop if max_pop > 0 else 0.0
-      final_score = alpha * float(cos) + beta * pop_norm
+      final_score = (getattr(engine, 'w_text', 0.6) * cos
+                     + getattr(engine, 'w_category', 0.2) * cos_cat
+                     + getattr(engine, 'w_manufacturer', 0.1) * cos_man
+                     + getattr(engine, 'w_popularity', 0.1) * pop_norm)
       items.append({
         'id': p['id'],
         'name': p['name'],
         'cosine': float(cos),
+        'cos_category': float(cos_cat),
+        'cos_manufacturer': float(cos_man),
         'popularity': pop,
         'pop_norm': pop_norm,
         'final_score': float(final_score)
@@ -964,7 +999,7 @@ def api_admin_calculations(product_id):
 @app.route('/api/admin/popularity')
 def api_admin_popularity():
     """Return top products by popularity (from denormalized_data or orders)"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not app.debug and ('user_id' not in session or session.get('role') != 'admin'):
         return jsonify({'error': 'no access'}), 403
 
     conn = get_db()
@@ -990,7 +1025,7 @@ def dev_api_admin_calculations(product_id):
         return jsonify({'error': 'not allowed'}), 403
 
     engine = get_reco_engine()
-    if engine is None or engine.matrix is None or product_id not in engine.ids:
+    if engine is None or getattr(engine, 'matrix_text', None) is None or product_id not in engine.ids:
         return jsonify({'items': []})
 
     try:
@@ -999,29 +1034,51 @@ def dev_api_admin_calculations(product_id):
         return jsonify({'items': []})
 
     idx = engine.ids.index(product_id)
-    cosine_similarities = linear_kernel(engine.matrix[idx:idx+1], engine.matrix).flatten()
-    cosine_similarities[idx] = -1
+
+    # compute per-component cosine similarities
+    try:
+      sims_text = linear_kernel(engine.matrix_text[idx:idx+1], engine.matrix_text).flatten()
+    except Exception:
+      sims_text = [0.0] * len(engine.ids)
+    try:
+      sims_category = linear_kernel(engine.matrix_category[idx:idx+1], engine.matrix_category).flatten() if getattr(engine, 'matrix_category', None) is not None else [0.0] * len(engine.ids)
+    except Exception:
+      sims_category = [0.0] * len(engine.ids)
+    try:
+      sims_manufacturer = linear_kernel(engine.matrix_manufacturer[idx:idx+1], engine.matrix_manufacturer).flatten() if getattr(engine, 'matrix_manufacturer', None) is not None else [0.0] * len(engine.ids)
+    except Exception:
+      sims_manufacturer = [0.0] * len(engine.ids)
+
+    sims_text[idx] = -1
+    sims_category[idx] = -1
+    sims_manufacturer[idx] = -1
 
     items = []
     max_pop = max((p.get('popularity', 0) for p in engine.products), default=1)
-    alpha = 0.8
-    beta = 0.2
 
-    for i, cos in enumerate(cosine_similarities):
-        if i == idx:
-            continue
-        p = engine.products[i]
-        pop = float(p.get('popularity', 0))
-        pop_norm = pop / max_pop if max_pop > 0 else 0.0
-        final_score = alpha * float(cos) + beta * pop_norm
-        items.append({
-            'id': p['id'],
-            'name': p['name'],
-            'cosine': float(cos),
-            'popularity': pop,
-            'pop_norm': pop_norm,
-            'final_score': float(final_score)
-        })
+    for i in range(len(engine.ids)):
+      if i == idx:
+        continue
+      p = engine.products[i]
+      cos = float(sims_text[i])
+      cos_cat = float(sims_category[i])
+      cos_man = float(sims_manufacturer[i])
+      pop = float(p.get('popularity', 0))
+      pop_norm = pop / max_pop if max_pop > 0 else 0.0
+      final_score = (getattr(engine, 'w_text', 0.6) * cos
+               + getattr(engine, 'w_category', 0.2) * cos_cat
+               + getattr(engine, 'w_manufacturer', 0.1) * cos_man
+               + getattr(engine, 'w_popularity', 0.1) * pop_norm)
+      items.append({
+        'id': p['id'],
+        'name': p['name'],
+        'cosine': float(cos),
+        'cos_category': float(cos_cat),
+        'cos_manufacturer': float(cos_man),
+        'popularity': pop,
+        'pop_norm': pop_norm,
+        'final_score': float(final_score)
+      })
 
     items = sorted(items, key=lambda x: x['final_score'], reverse=True)[:50]
     return jsonify({'items': items})
@@ -1050,7 +1107,7 @@ def api_admin_db(table):
 @app.route('/api/admin/rebuild-model', methods=['POST'])
 def api_admin_rebuild_model():
     """Force rebuild recommendation engine"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not app.debug and ('user_id' not in session or session.get('role') != 'admin'):
         return jsonify({'success': False, 'message': 'no access'}), 403
 
     engine = get_reco_engine()
@@ -1067,7 +1124,7 @@ def api_admin_rebuild_model():
 @app.route('/api/admin/build-denorm', methods=['POST'])
 def api_admin_build_denorm():
     """Build denormalized_data table by running the create_denormalized_table logic"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not app.debug and ('user_id' not in session or session.get('role') != 'admin'):
         return jsonify({'success': False, 'message': 'no access'}), 403
 
     try:

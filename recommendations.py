@@ -6,6 +6,7 @@ from scipy.sparse import hstack
 import numpy as np
 import json
 import os
+import re
 
 
 class RecommendationEngine:
@@ -13,12 +14,20 @@ class RecommendationEngine:
         self.db_path = db_path
         self.ids = []
         self.products = []
-        self.tfidf = None
-        self.matrix = None
-        # default weights
-        self.alpha = 0.8
-        self.beta = 0.2
-        self.cat_weight = 0.6
+        # vectorizers / matrices
+        self.tfidf_text = None
+        self.tfidf_category = None
+        self.tfidf_manufacturer = None
+        self.matrix_text = None
+        self.matrix_category = None
+        self.matrix_manufacturer = None
+        # default weights (four components: text, category, manufacturer, popularity)
+        self.w_text = 0.6
+        self.w_category = 0.2
+        self.w_manufacturer = 0.1
+        self.w_popularity = 0.1
+        # scaling for categorical sparse matrices
+        self.cat_scale = 1.0
         self._load_weights()
         self._build()
 
@@ -28,9 +37,13 @@ class RecommendationEngine:
             if os.path.exists(cfg_path):
                 with open(cfg_path, 'r', encoding='utf-8') as f:
                     cfg = json.load(f)
-                    self.alpha = float(cfg.get('alpha', self.alpha))
-                    self.beta = float(cfg.get('beta', self.beta))
-                    self.cat_weight = float(cfg.get('cat_weight', self.cat_weight))
+                    # new explicit weights
+                    self.w_text = float(cfg.get('w_text', cfg.get('alpha', self.w_text)))
+                    self.w_popularity = float(cfg.get('w_popularity', cfg.get('beta', self.w_popularity)))
+                    self.w_category = float(cfg.get('w_category', self.w_category))
+                    self.w_manufacturer = float(cfg.get('w_manufacturer', self.w_manufacturer))
+                    # scaling factor for category/manufacturer vectors
+                    self.cat_scale = float(cfg.get('cat_scale', cfg.get('cat_weight', 1.0)))
         except Exception:
             pass
 
@@ -61,7 +74,18 @@ class RecommendationEngine:
         corpus = []
         # separate categorical text for category/manufacturer/compatibility
         cat_corpus = []
+        manuf_corpus = []
         conn = self._connect()
+        def _normalize_manufacturer(name: str) -> str:
+            if not name:
+                return ''
+            s = str(name).lower()
+            # remove common company suffixes and punctuation
+            s = re.sub(r"\b(llc|ltd|inc|corp|corporation|gmbh|srl|oy|sa|limited)\b", "", s)
+            s = re.sub(r"[^a-z0-9а-яё\s]", " ", s)
+            s = re.sub(r"\s+", " ", s).strip()
+            return s
+
         for r in rows:
             parts = [str(r.get('name', '')), str(r.get('description', '')),
                      str(r.get('category', '')), str(r.get('compatibility', '')),
@@ -83,35 +107,38 @@ class RecommendationEngine:
 
             corpus.append(' '.join(parts))
             # build small categorical text blob (short, repeated)
-            cat_parts = [str(r.get('category', '')), str(r.get('manufacturer', '')), str(r.get('compatibility', ''))]
-            cat_corpus.append(' '.join(cat_parts))
+            # category + compatibility as word-level tokens
+            cat_parts = [str(r.get('category', '')), str(r.get('compatibility', ''))]
+            cat_corpus.append(' '.join(cat_parts).lower())
+            # normalize manufacturer for fuzzy matching (use char n-grams later)
+            mnorm = _normalize_manufacturer(r.get('manufacturer', ''))
+            # avoid treating empty manufacturer as identical across many products
+            if not mnorm:
+                mnorm = f'__no_manufacturer_{r.get("id")}'
+            manuf_corpus.append(mnorm)
         conn.close()
 
         # Vectorize main textual corpus
-        self.tfidf = TfidfVectorizer(stop_words=None, max_features=5000)
-        matrix_text = self.tfidf.fit_transform(corpus)
+        self.tfidf_text = TfidfVectorizer(stop_words=None, max_features=5000)
+        matrix_text = self.tfidf_text.fit_transform(corpus)
+        self.matrix_text = matrix_text
 
-        # Vectorize categorical fields (category/manufacturer/compatibility)
-        # Use a smaller TF-IDF to capture categorical similarity
-        self.tfidf_cat = TfidfVectorizer(stop_words=None, max_features=500)
-        matrix_cat = self.tfidf_cat.fit_transform(cat_corpus)
+        # Vectorize category (category + compatibility) and manufacturer separately
+        self.tfidf_category = TfidfVectorizer(stop_words=None, max_features=300)
+        matrix_category = self.tfidf_category.fit_transform(cat_corpus)
+        # manufacturer: use character n-grams to allow partial/fuzzy matches between similar names
+        self.tfidf_manufacturer = TfidfVectorizer(analyzer='char_wb', ngram_range=(3,6), lowercase=True, max_features=200)
+        matrix_manufacturer = self.tfidf_manufacturer.fit_transform(manuf_corpus)
 
-        # combine matrices horizontally; we may scale categorical part if desired
-        # give higher weight to text and smaller to categorical
-        # to scale sparse matrix, multiply data by factor
+        # scale categorical matrices by configured factor
         try:
-            # scale categorical vectors by configured cat_weight
-            from scipy.sparse import csr_matrix
-            matrix_cat = matrix_cat.multiply(self.cat_weight)
+            matrix_category = matrix_category.multiply(self.cat_scale)
+            matrix_manufacturer = matrix_manufacturer.multiply(self.cat_scale)
         except Exception:
             pass
 
-        # final matrix
-        try:
-            self.matrix = hstack([matrix_text, matrix_cat], format='csr')
-        except Exception:
-            # fallback to text only
-            self.matrix = matrix_text
+        self.matrix_category = matrix_category
+        self.matrix_manufacturer = matrix_manufacturer
         # load popularity from denormalized table if exists
         try:
             conn = sqlite3.connect(self.db_path)
@@ -132,36 +159,71 @@ class RecommendationEngine:
 
     def get_recommendations(self, product_id: int, top_k: int = 5) -> List[Dict]:
         """Вернуть список рекомендованных товаров (JSON-сериализуемый)."""
-        if self.matrix is None or product_id not in self.ids:
+        if product_id not in self.ids:
             return []
 
         idx = self.ids.index(product_id)
-        cosine_similarities = linear_kernel(self.matrix[idx:idx+1], self.matrix).flatten()
-        # exclude itself
-        cosine_similarities[idx] = -1
-        top_indices = np.argsort(cosine_similarities)[::-1][:top_k]
 
-        results = []
-        # compute final score combining text similarity and popularity
+        # compute per-component cosine similarities (text / category / manufacturer)
+        sims_text = np.zeros(len(self.ids))
+        sims_category = np.zeros(len(self.ids))
+        sims_manufacturer = np.zeros(len(self.ids))
+        try:
+            if self.matrix_text is not None:
+                sims_text = linear_kernel(self.matrix_text[idx:idx+1], self.matrix_text).flatten()
+        except Exception:
+            sims_text = np.zeros(len(self.ids))
+
+        try:
+            if self.matrix_category is not None:
+                sims_category = linear_kernel(self.matrix_category[idx:idx+1], self.matrix_category).flatten()
+        except Exception:
+            sims_category = np.zeros(len(self.ids))
+
+        try:
+            if self.matrix_manufacturer is not None:
+                sims_manufacturer = linear_kernel(self.matrix_manufacturer[idx:idx+1], self.matrix_manufacturer).flatten()
+        except Exception:
+            sims_manufacturer = np.zeros(len(self.ids))
+
+        # exclude itself
+        sims_text[idx] = -1
+        sims_category[idx] = -1
+        sims_manufacturer[idx] = -1
+
+        # popularity normalization
         max_pop = max((p.get('popularity', 0) for p in self.products), default=1)
-        # use configured weights
-        alpha = getattr(self, 'alpha', 0.8)
-        beta = getattr(self, 'beta', 0.2)
-        for i in top_indices:
-            cos = float(cosine_similarities[i])
+
+        # compute final score as weighted sum of four components
+        results = []
+        scores = []
+        for i in range(len(self.ids)):
+            cos_t = float(sims_text[i]) if sims_text is not None else 0.0
+            cos_c = float(sims_category[i]) if sims_category is not None else 0.0
+            cos_m = float(sims_manufacturer[i]) if sims_manufacturer is not None else 0.0
             pop = float(self.products[i].get('popularity', 0))
-            if cos <= 0 and pop == 0:
-                continue
             pop_norm = pop / max_pop if max_pop > 0 else 0.0
-            final_score = alpha * cos + beta * pop_norm
+
+            score = (self.w_text * cos_t) + (self.w_category * cos_c) + (self.w_manufacturer * cos_m) + (self.w_popularity * pop_norm)
+            scores.append((i, score))
+
+        # sort by score desc and take top_k (exclude negative/zero)
+        top = sorted(scores, key=lambda x: x[1], reverse=True)
+        taken = 0
+        for i, sc in top:
+            if taken >= top_k:
+                break
+            if sc <= 0:
+                continue
             p = self.products[i]
             results.append({
                 'id': p['id'],
                 'name': p['name'],
                 'price': p.get('price', ''),
                 'image': p.get('image', ''),
-                'score': float(final_score)
+                'score': float(sc)
             })
+            taken += 1
 
         return results
 

@@ -500,6 +500,7 @@
                                 style="flex: 1;">
                             В корзину
                         </button>
+                        <div class="rec-badge" data-ready="false" style="min-width:100px;text-align:right;font-size:12px;color:#444"></div>
                     </div>
                 </div>
             </div>
@@ -1264,6 +1265,42 @@
             console.error(err);
         }
     }
+
+    // Load recommendation summary badges for product cards (staggered to avoid burst)
+    async function loadCardRecommendationBadges(limitPerTick = 10, delayMs = 150) {
+        const cards = Array.from(document.querySelectorAll('.product-card'));
+        for (let i = 0; i < cards.length; i++) {
+            const card = cards[i];
+            const badge = card.querySelector('.rec-badge');
+            if (!badge || badge.getAttribute('data-ready') === 'true') continue;
+            // staggered fetch
+            setTimeout(async () => {
+                const id = card.dataset.id;
+                try {
+                    const resp = await fetch(`/api/recommendations/${id}`);
+                    const items = await resp.json();
+                    if (!items || items.length === 0) {
+                        badge.textContent = 'Похожих: 0';
+                    } else {
+                        const maxScore = Math.max(...items.map(it => it.score || 0));
+                        const pct = Math.round(maxScore * 100);
+                        badge.innerHTML = `Похожих: ${items.length} • <strong>${pct}%</strong>`;
+                    }
+                } catch (e) {
+                    badge.textContent = '';
+                }
+                badge.setAttribute('data-ready','true');
+            }, i * delayMs);
+            // optionally limit how many start immediately
+            if ((i+1) % limitPerTick === 0) await new Promise(r=>setTimeout(r, delayMs));
+        }
+    }
+
+    // start loading badges after page load
+    window.addEventListener('load', () => {
+        // small delay to let layout settle
+        setTimeout(()=> loadCardRecommendationBadges(), 400);
+    });
 
     function closeModal() {
         document.getElementById('orderModal').classList.remove('active');

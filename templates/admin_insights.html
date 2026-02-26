@@ -47,12 +47,14 @@
                         </div>
                             <div style="margin-top:8px;text-align:right;width:100%">
                                 <div style="display:flex;gap:6px;align-items:center;justify-content:flex-end">
-                                    <label class="tiny" for="alphaInput">α</label>
-                                    <input id="alphaInput" type="number" step="0.01" min="0" max="1" style="width:70px" />
-                                    <label class="tiny" for="betaInput">β</label>
-                                    <input id="betaInput" type="number" step="0.01" min="0" max="1" style="width:70px" />
-                                    <label class="tiny" for="catWeightInput">cat</label>
-                                    <input id="catWeightInput" type="number" step="0.01" min="0" max="2" style="width:70px" />
+                                    <label class="tiny" for="wTextInput">Text</label>
+                                    <input id="wTextInput" type="number" step="0.01" min="0" max="1" style="width:70px" />
+                                    <label class="tiny" for="wCategoryInput">Category</label>
+                                    <input id="wCategoryInput" type="number" step="0.01" min="0" max="1" style="width:70px" />
+                                    <label class="tiny" for="wManufacturerInput">Manufacturer</label>
+                                    <input id="wManufacturerInput" type="number" step="0.01" min="0" max="1" style="width:70px" />
+                                    <label class="tiny" for="wPopularityInput">Pop</label>
+                                    <input id="wPopularityInput" type="number" step="0.01" min="0" max="1" style="width:70px" />
                                     <button id="saveWeights" class="tab" style="background:#6c757d;color:white;padding:6px 8px;border-radius:8px;border:none;cursor:pointer">Save weights</button>
                                 </div>
                             </div>
@@ -75,9 +77,9 @@
                         <div class="tiny">3) Вычисляем косинусную близость</div>
                         <div class="tiny">Метрика: cosine</div>
                     </div>
-                    <div class="step">
-                        <div class="tiny">4) Комбинация: text * α + popularity * β</div>
-                        <div class="tiny">α=0.8, β=0.2</div>
+                        <div class="step">
+                        <div class="tiny">4) Комбинация: w_text*text + w_category*category + w_manufacturer*manufacturer + w_popularity*popularity</div>
+                        <div class="tiny">w_text=0.6, w_category=0.2, w_manufacturer=0.1, w_popularity=0.1</div>
                     </div>
                 </div>
 
@@ -115,7 +117,7 @@
 
                     <div id="visualRecs" style="margin-top:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px"></div>
 
-                        <div class="card" style="margin-top:12px">
+                            <div class="card" style="margin-top:12px">
                             <h3>Приоритет продуктов (по популярности)</h3>
                             <div style="display:flex;gap:12px;align-items:center">
                                 <div id="popChartContainer" style="width:280px;height:280px"></div>
@@ -123,7 +125,22 @@
                                     <div id="popLegend"></div>
                                 </div>
                             </div>
-                        </div>
+                            </div>
+
+                            <div class="card" style="margin-top:12px">
+                                <h3>Совместимость и вклад компонентов</h3>
+                                <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
+                                    <div style="flex:1;min-width:260px">
+                                        <div style="margin-bottom:8px"><strong>Выбранный товар:</strong> <span id="selectedProductName">—</span></div>
+                                        <div style="margin-bottom:8px"><strong>Совместимость (product):</strong> <div id="selectedCompatibility" class="tiny" style="margin-top:6px;color:#333"></div></div>
+                                        <div style="margin-bottom:8px"><strong>Производитель:</strong> <span id="selectedManufacturer">—</span></div>
+                                    </div>
+                                    <div style="flex:2;min-width:320px">
+                                        <canvas id="componentChart" width="640" height="240"></canvas>
+                                    </div>
+                                </div>
+                                <div class="tiny" style="margin-top:8px;color:#666">График показывает вклад компонентов (Text / Category / Manufacturer / Pop) для рекомендуемых товаров. Обновляется при смене весов и выбранного товара.</div>
+                            </div>
 
                     <table id="calcTable" style="margin-top:12px">
                         <thead><tr><th>id</th><th>name</th><th>cosine</th><th>pop</th><th>pop_norm</th><th>score</th></tr></thead>
@@ -174,6 +191,17 @@
             const opt = document.createElement('option'); opt.value = p.id; opt.textContent = `${p.id} — ${p.name}`; prodSelect.appendChild(opt);
         });
 
+        // preload goods details map for compatibility/manufacturer lookup
+        let goodsMap = {};
+        async function loadGoodsMap(){
+            try{
+                const res = await fetch('/api/admin/db/goods');
+                const j = await res.json();
+                (j.rows||[]).forEach(r=>{ goodsMap[r.id] = r; });
+            }catch(e){ console.warn('Could not preload goods map', e); }
+        }
+        loadGoodsMap();
+
         // Poll model status until ready; handle access errors
         let _modelStatusTimer = null;
         let weights = { alpha: 0.8, beta: 0.2, cat_weight: 0.6 };
@@ -192,9 +220,10 @@
                     if(j.weights){
                         weights = j.weights;
                         // update inputs
-                        try{ document.getElementById('alphaInput').value = weights.alpha; }catch(e){}
-                        try{ document.getElementById('betaInput').value = weights.beta; }catch(e){}
-                        try{ document.getElementById('catWeightInput').value = weights.cat_weight; }catch(e){}
+                        try{ document.getElementById('wTextInput').value = weights.w_text; }catch(e){}
+                        try{ document.getElementById('wCategoryInput').value = weights.w_category; }catch(e){}
+                        try{ document.getElementById('wManufacturerInput').value = weights.w_manufacturer; }catch(e){}
+                        try{ document.getElementById('wPopularityInput').value = weights.w_popularity; }catch(e){}
                     }
                     // stop polling when ready
                     if(_modelStatusTimer){ clearInterval(_modelStatusTimer); _modelStatusTimer = null; }
@@ -216,14 +245,15 @@
 
         // Save weights handler
         document.getElementById('saveWeights').onclick = async () => {
-            const a = parseFloat(document.getElementById('alphaInput').value || 0.8);
-            const b = parseFloat(document.getElementById('betaInput').value || 0.2);
-            const c = parseFloat(document.getElementById('catWeightInput').value || 0.6);
-            const resp = await fetch('/api/admin/weights', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({alpha: a, beta: b, cat_weight: c, rebuild: true}) });
+            const w_text = parseFloat(document.getElementById('wTextInput').value || 0.6);
+            const w_category = parseFloat(document.getElementById('wCategoryInput').value || 0.2);
+            const w_manufacturer = parseFloat(document.getElementById('wManufacturerInput').value || 0.1);
+            const w_popularity = parseFloat(document.getElementById('wPopularityInput').value || 0.1);
+            const resp = await fetch('/api/admin/weights', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({w_text: w_text, w_category: w_category, w_manufacturer: w_manufacturer, w_popularity: w_popularity, rebuild: true}) });
             const j = await resp.json();
             if(j && j.success){
                 alert('Weights saved and model rebuilt');
-                weights = { alpha: a, beta: b, cat_weight: c };
+                weights = { w_text: w_text, w_category: w_category, w_manufacturer: w_manufacturer, w_popularity: w_popularity };
                 await loadModelStatus();
             } else {
                 alert('Failed to save weights');
@@ -257,16 +287,24 @@
 
             // visual cards (show up to 12 from current page)
             const visual = document.getElementById('visualRecs'); visual.innerHTML = '';
-            const alpha = (weights && weights.alpha) ? weights.alpha : 0.8;
-            const beta = (weights && weights.beta) ? weights.beta : 0.2;
-            (j.items||[]).slice(0,12).forEach(it=>{
+                const w_text_v = (weights && weights.w_text) ? weights.w_text : 0.6;
+                const w_category_v = (weights && weights.w_category) ? weights.w_category : 0.2;
+                const w_manufacturer_v = (weights && weights.w_manufacturer) ? weights.w_manufacturer : 0.1;
+                const w_pop_v = (weights && weights.w_popularity) ? weights.w_popularity : 0.1;
+                (j.items||[]).slice(0,12).forEach(it=>{
                 const cos = Math.max(0, it.cosine || 0);
+                const cos_cat = Math.max(0, it.cos_category || 0);
+                const cos_man = Math.max(0, it.cos_manufacturer || 0);
                 const pop_norm = it.pop_norm || 0;
-                const text_contrib = alpha * cos;
-                const pop_contrib = beta * pop_norm;
-                const total = Math.max(1e-9, text_contrib + pop_contrib);
-                const text_pct = Math.round((text_contrib/total)*100);
-                const pop_pct = 100 - text_pct;
+                const t_contrib = w_text_v * cos;
+                const c_contrib = w_category_v * cos_cat;
+                const m_contrib = w_manufacturer_v * cos_man;
+                const p_contrib = w_pop_v * pop_norm;
+                const total = Math.max(1e-9, t_contrib + c_contrib + m_contrib + p_contrib);
+                const t_pct = Math.round((t_contrib/total)*100);
+                const c_pct = Math.round((c_contrib/total)*100);
+                const m_pct = Math.round((m_contrib/total)*100);
+                const p_pct = Math.max(0, 100 - (t_pct + c_pct + m_pct));
 
                 const card = document.createElement('div');
                 card.style.background = '#fff'; card.style.padding = '12px'; card.style.borderRadius = '10px'; card.style.boxShadow = '0 6px 18px rgba(0,0,0,0.04)';
@@ -277,16 +315,31 @@
                     </div>
                     <div style="font-size:12px;color:#666;margin-bottom:6px">Вклад в итоговый рейтинг</div>
                     <div style="height:10px;background:#f0f4ff;border-radius:6px;overflow:hidden;display:flex">
-                        <div style="width:${text_pct}%;background:linear-gradient(90deg,#667eea,#764ba2)"></div>
-                        <div style="width:${pop_pct}%;background:#e6f1ff"></div>
+                        <div style="width:${t_pct}%;background:linear-gradient(90deg,#667eea,#764ba2)"></div>
+                        <div style="width:${c_pct}%;background:#a78bfa"></div>
+                        <div style="width:${m_pct}%;background:#34c38f"></div>
+                        <div style="width:${p_pct}%;background:#e6f1ff"></div>
                     </div>
                     <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:12px;color:#444">
-                        <div>Текст: ${text_pct}%</div>
-                        <div>Популярность: ${pop_pct}%</div>
+                        <div>Text: ${t_pct}%</div>
+                        <div>Cat: ${c_pct}%</div>
+                        <div>Manuf: ${m_pct}%</div>
+                        <div>Pop: ${p_pct}%</div>
                     </div>
                 `;
                 visual.appendChild(card);
             });
+
+            // update compatibility and chart
+            try{
+                const selId = parseInt(prodSelect.value);
+                const sel = goodsMap[selId] || {};
+                document.getElementById('selectedProductName').textContent = sel.name || (products.find(p=>p.id==selId)||{}).name || '—';
+                document.getElementById('selectedCompatibility').textContent = sel.compatibility || '—';
+                document.getElementById('selectedManufacturer').textContent = sel.manufacturer || '—';
+            }catch(e){ }
+
+            renderComponentChart((j.items||[]).slice(0,12));
 
             // pagination
             const pagination = document.getElementById('pagination'); pagination.innerHTML = '';
@@ -398,6 +451,58 @@
 
         // load popularity on open
         loadPopularityChart();
+
+        // Chart.js for component breakdown (load dynamically)
+        let componentChart = null;
+        function ensureChartLib(cb){
+            if(window.Chart) return cb();
+            const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/chart.js'; s.onload = cb; document.head.appendChild(s);
+        }
+
+        function renderComponentChart(items){
+            ensureChartLib(()=>{
+                const labels = items.map(it=> it.name.length>30? it.name.slice(0,28)+'...': it.name);
+                const w_text_v = (weights && weights.w_text) ? weights.w_text : 0.6;
+                const w_category_v = (weights && weights.w_category) ? weights.w_category : 0.2;
+                const w_manufacturer_v = (weights && weights.w_manufacturer) ? weights.w_manufacturer : 0.1;
+                const w_pop_v = (weights && weights.w_popularity) ? weights.w_popularity : 0.1;
+                const textVals = [];
+                const catVals = [];
+                const manVals = [];
+                const popVals = [];
+                items.forEach(it=>{
+                    const cos = Math.max(0, it.cosine || 0);
+                    const cos_cat = Math.max(0, it.cos_category || 0);
+                    const cos_man = Math.max(0, it.cos_manufacturer || 0);
+                    const pop_norm = it.pop_norm || 0;
+                    const t = w_text_v * cos;
+                    const c = w_category_v * cos_cat;
+                    const m = w_manufacturer_v * cos_man;
+                    const p = w_pop_v * pop_norm;
+                    const tot = Math.max(1e-9, t+c+m+p);
+                    textVals.push(Math.round((t/tot)*100));
+                    catVals.push(Math.round((c/tot)*100));
+                    manVals.push(Math.round((m/tot)*100));
+                    popVals.push(Math.round((p/tot)*100));
+                });
+
+                const ctx = document.getElementById('componentChart').getContext('2d');
+                if(componentChart){ componentChart.data.labels = labels; componentChart.data.datasets[0].data = textVals; componentChart.data.datasets[1].data = catVals; componentChart.data.datasets[2].data = manVals; componentChart.data.datasets[3].data = popVals; componentChart.update(); return; }
+                componentChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            { label: 'Text %', data: textVals, backgroundColor: '#667eea' },
+                            { label: 'Category %', data: catVals, backgroundColor: '#a78bfa' },
+                            { label: 'Manufacturer %', data: manVals, backgroundColor: '#34c38f' },
+                            { label: 'Popularity %', data: popVals, backgroundColor: '#e6f1ff' }
+                        ]
+                    },
+                    options: { responsive:true, maintainAspectRatio:false, scales: { x: { stacked:true }, y: { stacked:true, beginAtZero:true, max:100 } } }
+                });
+            });
+        }
 
     </script>
 </body>

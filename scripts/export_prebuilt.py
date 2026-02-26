@@ -27,13 +27,9 @@ def main():
     # serialize recommendation engine
     try:
         sys.path.insert(0, ROOT)
-        from app import get_reco_engine
-        engine = get_reco_engine()
-        if engine is None:
-            print('Recommendation engine not available; attempting to build')
-            # try to import recommendations and build
-            from recommendations import RecommendationEngine
-            engine = RecommendationEngine(DB_DST)
+        # Always build a fresh engine from current code + DB to ensure weights/config applied
+        from recommendations import RecommendationEngine
+        engine = RecommendationEngine(DB_SRC)
     except Exception as e:
         print('Failed to import/build engine:', e)
         engine = None
