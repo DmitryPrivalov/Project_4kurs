@@ -5,7 +5,6 @@ if not exist .venv (
 )
 .venv\Scripts\python -m pip install --upgrade pip
 .venv\Scripts\pip install -r requirements.txt
-.venv\Scripts\python setup_everything.py
-.venv\Scripts\python scripts\auto_populate.py
+.venv\Scripts\python scripts\full_setup.py
 echo Starting Flask app...
 .venv\Scripts\python app.py
