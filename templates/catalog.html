@@ -434,6 +434,8 @@
             {% endif %}
             <a href="/">← Главная</a>
         </div>
+        
+        
     </div>
 </header>
 
@@ -547,9 +549,18 @@
                         <span id="detailPrice" class="spec-value price"></span>
                     </div>
                 </div>
+                <!-- recommendations moved below detail-body -->
                 <div class="modal-buttons">
                     <button class="btn-submit" id="detailOrderBtn">Заказать эту запчасть</button>
                     <button class="btn-cancel" onclick="closeDetailModal()">Закрыть</button>
+                </div>
+            </div>
+            <!-- recommendations row: occupies left column under image -->
+            <div class="rec-row" style="grid-column: 1 / -1;">
+                <div class="rec-carousel-wrapper">
+                    <button id="recPrev" class="rec-arrow rec-prev" aria-label="prev">‹</button>
+                    <div id="recommendations" tabindex="0" aria-label="Похожие товары" style="display:flex;"><!-- filled dynamically --></div>
+                    <button id="recNext" class="rec-arrow rec-next" aria-label="next">›</button>
                 </div>
             </div>
         </div>
@@ -644,6 +655,83 @@
     font-weight: 700;
 }
 
+.recommendation-card {
+    min-width: 160px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+    overflow: hidden;
+    flex: 0 0 auto;
+}
+.recommendation-card img {
+    width: 100%;
+    height: 110px;
+    object-fit: cover;
+}
+.recommendation-card .rec-body {
+    padding: 10px;
+}
+.recommendation-card .rec-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.recommendation-card .rec-price {
+    color: #667eea;
+    font-weight: 700;
+    margin-top: 6px;
+}
+
+.rec-score {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.rec-carousel-wrapper { position: relative; }
+.rec-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(102,126,234,0.95);
+    color: white;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+    z-index: 10;
+}
+.rec-prev { left: 6px; }
+.rec-next { right: 6px; }
+.recommendation-card { position: relative; }
+
+/* Ensure carousel stays inside modal and doesn't overflow page */
+.rec-carousel-wrapper { overflow: hidden; max-width: 100%; box-sizing: border-box; }
+#recommendations { overflow-x: auto; padding: 12px 44px; gap: 12px; box-sizing: border-box; -webkit-overflow-scrolling: touch; scroll-behavior: smooth; }
+.recommendation-card { flex: 0 0 220px; min-width: 180px; max-width: 260px; }
+.recommendation-card img { height: 120px; object-fit: cover; }
+.recommendation-card .rec-body { padding: 10px 12px; }
+.rec-arrow { width: 36px; height: 36px; }
+
+/* hide horizontal scrollbar visually but keep scroll functionality */
+#recommendations::-webkit-scrollbar { height: 8px; }
+#recommendations::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 4px; }
+
+/* When recommendations are shown inside detail modal, match width to image column */
+.detail-body .rec-carousel-wrapper { width: min(700px, 100%); margin: 12px auto 0; }
+.detail-body #recommendations { padding: 8px 28px; }
+
 #detailOrderBtn {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
@@ -693,6 +781,8 @@
     .specs-grid {
         grid-template-columns: 1fr;
     }
+    .detail-body .rec-carousel-wrapper { width: 100%; }
+    .detail-body #recommendations { padding: 8px 12px; }
 }
 </style>
 
@@ -726,6 +816,12 @@
         };
         
         modal.classList.add('active');
+        // Load recommendations asynchronously
+        try {
+            fetchRecommendations(id);
+        } catch (e) {
+            console.error('Recommendations load error', e);
+        }
     }
 
     function closeDetailModal() {
@@ -1107,6 +1203,67 @@
             updateCartCount();
         }
     });
+
+    // Fetch and render recommendations
+    async function fetchRecommendations(productId) {
+        const container = document.getElementById('recommendations');
+        if (!container) return;
+        container.innerHTML = '<div style="color:#999; padding:10px">Загрузка...</div>';
+        try {
+            const resp = await fetch(`/api/recommendations/${productId}`);
+            const items = await resp.json();
+            container.innerHTML = '';
+            if (!items || items.length === 0) {
+                container.innerHTML = '<div style="color:#999; padding:10px">Нет рекомендаций</div>';
+                return;
+            }
+
+            // sort by score desc to show best matches first
+            items.sort((a,b) => (b.score||0) - (a.score||0));
+
+            items.forEach(it => {
+                const card = document.createElement('div');
+                card.className = 'recommendation-card';
+                const scorePercent = ((it.score||0) * 100).toFixed(1);
+                card.innerHTML = `
+                    <div class="rec-score">${scorePercent}%</div>
+                    <img src="${it.image}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22160%22 height=%22110%22%3E%3Crect fill=%22%23667eea%22 width=%22160%22 height=%22110%22/%3E%3C/svg%3E'">
+                    <div class="rec-body">
+                        <div class="rec-name">${it.name}</div>
+                        <div class="rec-price">₽ ${parseInt(it.price || 0).toLocaleString('ru-RU')}</div>
+                    </div>
+                `;
+                card.onclick = () => {
+                    const target = document.querySelector(`.product-card[data-id="${it.id}"]`);
+                    if (target) {
+                        target.scrollIntoView({behavior: 'smooth', block: 'center'});
+                        setTimeout(()=> target.click(), 300);
+                    } else {
+                        window.location.href = '/catalog';
+                    }
+                };
+                container.appendChild(card);
+            });
+            // wire carousel buttons
+            const prev = document.getElementById('recPrev');
+            const next = document.getElementById('recNext');
+            const card = container.querySelector('.recommendation-card');
+            const gap = 12;
+            const step = card ? (card.offsetWidth + gap) : 240;
+            if (prev && next) {
+                prev.onclick = (e) => { e.stopPropagation(); container.scrollBy({left: -step, behavior: 'smooth'}); };
+                next.onclick = (e) => { e.stopPropagation(); container.scrollBy({left: step, behavior: 'smooth'}); };
+                // optional keyboard support
+                container.addEventListener('keydown', (ev) => {
+                    if (ev.key === 'ArrowLeft') container.scrollBy({left: -step, behavior:'smooth'});
+                    if (ev.key === 'ArrowRight') container.scrollBy({left: step, behavior:'smooth'});
+                });
+            }
+        } catch (err) {
+            container.innerHTML = '<div style="color:#999; padding:10px">Ошибка загрузки рекомендаций</div>';
+            console.error(err);
+        }
+    }
 
     function closeModal() {
         document.getElementById('orderModal').classList.remove('active');

@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Админ — AI Insights</title>
+    <style>
+        body{font-family:Segoe UI,Arial;background:#f4f6fb;color:#222;padding:20px}
+        .container{max-width:1100px;margin:0 auto}
+        header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+        .tabs{display:flex;gap:8px}
+        .tab{padding:10px 14px;background:#fff;border-radius:8px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.06)}
+        .tab.active{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
+        .card{background:#fff;padding:18px;border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,0.06);margin-bottom:16px}
+        .row{display:flex;gap:12px;align-items:center}
+        select,input{padding:8px;border-radius:8px;border:1px solid #ddd}
+        .steps{display:flex;gap:12px;margin-top:12px}
+        .step{flex:1;padding:12px;border-radius:8px;background:linear-gradient(180deg,#fff,#f7f9ff);text-align:center;border:1px solid rgba(102,126,234,0.08)}
+        .tiny{font-size:12px;color:#666}
+        table{width:100%;border-collapse:collapse;margin-top:12px}
+        th,td{padding:8px;border-bottom:1px solid #eee;text-align:left}
+        .badge{display:inline-block;padding:6px 8px;border-radius:8px;background:#eef2ff;color:#3b4db7;font-weight:700}
+        pre{background:#0f1724;color:#e6f1ff;padding:12px;border-radius:8px;overflow:auto}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI Insights — Рекомендации</h1>
+            <div class="tabs">
+                <div class="tab active" id="tab-ai">AI Insights</div>
+                <div class="tab" id="tab-db">DB Viewer</div>
+            </div>
+        </header>
+
+        <div id="panel-ai">
+            <div class="card">
+                <div class="row">
+                    <div style="flex:1">
+                        <label for="productSelect" class="tiny">Выберите товар для анализа:</label>
+                        <select id="productSelect"></select>
+                    </div>
+                    <div style="width:260px;text-align:right;display:flex;flex-direction:column;gap:8px;align-items:flex-end">
+                        <div style="text-align:right">
+                            <div class="tiny">Model status:</div>
+                            <div id="modelStatus" class="badge">Загрузка...</div>
+                        </div>
+                        <div>
+                            <button id="rebuildBtn" class="tab" style="background:#4455cc;color:white;padding:8px 12px;border-radius:8px;border:none;cursor:pointer">Rebuild model</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="steps" aria-hidden="false">
+                    <div class="step">
+                        <div class="tiny">1) Собираем текстовые поля</div>
+                        <div class="tiny">(name, description, category,...)</div>
+                    </div>
+                    <div class="step">
+                        <div class="tiny">2) Векторизация TF‑IDF</div>
+                        <div class="tiny">Размер словаря: <span id="vocabSize">—</span></div>
+                    </div>
+                    <div class="step">
+                        <div class="tiny">3) Вычисляем косинусную близость</div>
+                        <div class="tiny">Метрика: cosine</div>
+                    </div>
+                    <div class="step">
+                        <div class="tiny">4) Комбинация: text * α + popularity * β</div>
+                        <div class="tiny">α=0.8, β=0.2</div>
+                    </div>
+                </div>
+
+                <div id="calcResult" style="margin-top:14px"></div>
+            </div>
+
+            <div class="card">
+                <h3>Подробные расчёты (агрегированные)</h3>
+                <div class="tiny">Показываются cosine, popularity, нормализованная популярность и итоговый score</div>
+                    <div id="visualFlow" style="margin-top:14px">
+                        <!-- visual flow diagram -->
+                        <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap">
+                            <div style="flex:1;min-width:180px;padding:12px;border-radius:8px;background:#fff;border:1px solid #eef2ff;text-align:center">
+                                <strong>Текстовые данные</strong>
+                                <div class="tiny">(название, описание, категория...)</div>
+                            </div>
+                            <div style="width:40px;text-align:center;color:#667eea">→</div>
+                            <div style="flex:1;min-width:180px;padding:12px;border-radius:8px;background:#fff;border:1px solid #eef2ff;text-align:center">
+                                <strong>Векторизация</strong>
+                                <div class="tiny">TF‑IDF → векторы</div>
+                            </div>
+                            <div style="width:40px;text-align:center;color:#667eea">→</div>
+                            <div style="flex:1;min-width:180px;padding:12px;border-radius:8px;background:#fff;border:1px solid #eef2ff;text-align:center">
+                                <strong>Сравнение</strong>
+                                <div class="tiny">Косинусная близость</div>
+                            </div>
+                            <div style="width:40px;text-align:center;color:#667eea">→</div>
+                            <div style="flex:1;min-width:180px;padding:12px;border-radius:8px;background:#fff;border:1px solid #eef2ff;text-align:center">
+                                <strong>Итоговый рейтинг</strong>
+                                <div class="tiny">α*text + β*popularity</div>
+                            </div>
+                        </div>
+                        <p class="tiny" style="margin-top:10px;color:#444">Пояснение: система сначала преобразует текстовые поля товара в числовые векторы (TF‑IDF), затем измеряет сходство (cosine). Полученное сходство комбинируется с показателем популярности (частота заказов) с весами α=0.8 и β=0.2 — это даёт итоговый score.</p>
+                    </div>
+
+                    <div id="visualRecs" style="margin-top:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px"></div>
+
+                        <div class="card" style="margin-top:12px">
+                            <h3>Приоритет продуктов (по популярности)</h3>
+                            <div style="display:flex;gap:12px;align-items:center">
+                                <div id="popChartContainer" style="width:280px;height:280px"></div>
+                                <div style="flex:1">
+                                    <div id="popLegend"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                    <table id="calcTable" style="margin-top:12px">
+                        <thead><tr><th>id</th><th>name</th><th>cosine</th><th>pop</th><th>pop_norm</th><th>score</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+                        <div id="loadTimer" class="tiny" style="color:#666"> </div>
+                        <div id="pagination" style="display:flex;gap:8px;align-items:center"></div>
+                    </div>
+            </div>
+        </div>
+
+        <div id="panel-db" style="display:none">
+            <div class="card">
+                <div class="row">
+                    <div>
+                        <label for="dbTable" class="tiny">Таблица:</label>
+                        <select id="dbTable">
+                            <option value="goods">goods</option>
+                            <option value="orders">orders</option>
+                            <option value="users">users</option>
+                            <option value="denormalized_data">denormalized_data</option>
+                        </select>
+                    </div>
+                    <div style="flex:1;text-align:right"><button id="loadTable" class="tab">Загрузить</button></div>
+                </div>
+                <div id="dbPreview" style="margin-top:12px">
+                    <table id="dbTableView"><thead></thead><tbody></tbody></table>
+                </div>
+                <div style="margin-top:12px; display:flex; gap:8px; align-items:center">
+                    <button id="buildDenorm" class="tab" style="background:#28a745;color:#fff;border:none;padding:8px 12px;border-radius:8px;cursor:pointer">Build denormalized table</button>
+                    <div class="tiny" id="denormStatus"> </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // tabs
+        document.getElementById('tab-ai').onclick = () => { document.getElementById('panel-ai').style.display='block'; document.getElementById('panel-db').style.display='none'; document.getElementById('tab-ai').classList.add('active'); document.getElementById('tab-db').classList.remove('active'); }
+        document.getElementById('tab-db').onclick = () => { document.getElementById('panel-ai').style.display='none'; document.getElementById('panel-db').style.display='block'; document.getElementById('tab-db').classList.add('active'); document.getElementById('tab-ai').classList.remove('active'); }
+
+        // fill products
+        const prodSelect = document.getElementById('productSelect');
+        const products = {{ products|tojson }};
+        products.forEach(p => {
+            const opt = document.createElement('option'); opt.value = p.id; opt.textContent = `${p.id} — ${p.name}`; prodSelect.appendChild(opt);
+        });
+
+        // Poll model status until ready; handle access errors
+        let _modelStatusTimer = null;
+        async function loadModelStatus(){
+            try{
+                const resModelStatus = await fetch('/api/admin/model-status');
+                if(resModelStatus.status === 403){
+                    document.getElementById('modelStatus').textContent = 'Нет доступа';
+                    document.getElementById('vocabSize').textContent = '—';
+                    return;
+                }
+                const j = await resModelStatus.json();
+                if(j && j.built){
+                    document.getElementById('modelStatus').textContent = `built • ${j.n_products} products`;
+                    document.getElementById('vocabSize').textContent = j.vocab_size;
+                    // stop polling when ready
+                    if(_modelStatusTimer){ clearInterval(_modelStatusTimer); _modelStatusTimer = null; }
+                    // refresh dependent widgets
+                    loadPopularityChart();
+                    if(prodSelect.value) loadCalculations();
+                } else {
+                    document.getElementById('modelStatus').textContent = 'building...';
+                    document.getElementById('vocabSize').textContent = '—';
+                    // start polling every 2 seconds until built
+                    if(!_modelStatusTimer){ _modelStatusTimer = setInterval(loadModelStatus, 2000); }
+                }
+            }catch(err){
+                console.error('Model status error', err);
+                document.getElementById('modelStatus').textContent = 'Ошибка';
+                document.getElementById('vocabSize').textContent = '—';
+            }
+        }
+
+        async function loadCalculations(page=1){
+            const id = prodSelect.value;
+            const perPage = 10;
+            const timerEl = document.getElementById('loadTimer');
+            timerEl.textContent = 'Загрузка... 0s';
+            let startTime = Date.now();
+            const iv = setInterval(()=>{ timerEl.textContent = 'Загрузка... ' + Math.floor((Date.now()-startTime)/1000) + 's' }, 500);
+
+            const tbody = document.getElementById('calcTable').querySelector('tbody');
+            tbody.innerHTML = '<tr><td colspan="6">Загрузка...</td></tr>';
+            document.getElementById('visualRecs').innerHTML = '<div style="grid-column:1/-1;color:#666;padding:8px">Загрузка визуализации...</div>';
+
+            const resCalc = await fetch(`/api/admin/calculations/${id}?page=${page}&per_page=${perPage}`);
+            const j = await resCalc.json();
+            clearInterval(iv);
+            timerEl.textContent = '';
+
+            tbody.innerHTML = '';
+            // numeric table
+            (j.items||[]).forEach(it=>{
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${it.id}</td><td>${it.name}</td><td>${(it.cosine||0).toFixed(4)}</td><td>${it.popularity}</td><td>${(it.pop_norm||0).toFixed(3)}</td><td>${(it.final_score||it.score||0).toFixed(4)}</td>`;
+                tbody.appendChild(tr);
+            });
+
+            // visual cards (show up to 12 from current page)
+            const visual = document.getElementById('visualRecs'); visual.innerHTML = '';
+            const alpha = 0.8, beta = 0.2;
+            (j.items||[]).slice(0,12).forEach(it=>{
+                const cos = Math.max(0, it.cosine || 0);
+                const pop_norm = it.pop_norm || 0;
+                const text_contrib = alpha * cos;
+                const pop_contrib = beta * pop_norm;
+                const total = Math.max(1e-9, text_contrib + pop_contrib);
+                const text_pct = Math.round((text_contrib/total)*100);
+                const pop_pct = 100 - text_pct;
+
+                const card = document.createElement('div');
+                card.style.background = '#fff'; card.style.padding = '12px'; card.style.borderRadius = '10px'; card.style.boxShadow = '0 6px 18px rgba(0,0,0,0.04)';
+                card.innerHTML = `
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                        <div style="font-weight:700">${it.name}</div>
+                        <div style="background:#eef2ff;color:#3344aa;padding:6px 10px;border-radius:12px;font-weight:700">${(it.final_score||0).toFixed(3)}</div>
+                    </div>
+                    <div style="font-size:12px;color:#666;margin-bottom:6px">Вклад в итоговый рейтинг</div>
+                    <div style="height:10px;background:#f0f4ff;border-radius:6px;overflow:hidden;display:flex">
+                        <div style="width:${text_pct}%;background:linear-gradient(90deg,#667eea,#764ba2)"></div>
+                        <div style="width:${pop_pct}%;background:#e6f1ff"></div>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:12px;color:#444">
+                        <div>Текст: ${text_pct}%</div>
+                        <div>Популярность: ${pop_pct}%</div>
+                    </div>
+                `;
+                visual.appendChild(card);
+            });
+
+            // pagination
+            const pagination = document.getElementById('pagination'); pagination.innerHTML = '';
+            const total = j.total || 0; const per_page = j.per_page || perPage; const current = j.page || 1;
+            const totalPages = Math.max(1, Math.ceil(total / per_page));
+
+            const prev = document.createElement('button'); prev.textContent = 'Prev'; prev.disabled = current<=1; prev.onclick = ()=> loadCalculations(current-1);
+            const next = document.createElement('button'); next.textContent = 'Next'; next.disabled = current>=totalPages; next.onclick = ()=> loadCalculations(current+1);
+            const info = document.createElement('div'); info.textContent = `Страница ${current} / ${totalPages} • Всего: ${total}`; info.style.color='#444'; info.style.fontSize='13px';
+            pagination.appendChild(prev); pagination.appendChild(info); pagination.appendChild(next);
+        }
+
+        prodSelect.onchange = loadCalculations;
+        // If there are no products passed from server, show hint
+        if(!products || products.length === 0){
+            const opt = document.createElement('option'); opt.value = ''; opt.textContent = 'Нет товаров — проверьте вход как admin'; prodSelect.appendChild(opt);
+            document.getElementById('modelStatus').textContent = 'Нет товаров';
+        }
+        // start polling model status immediately
+        loadModelStatus();
+        if(prodSelect.value) loadCalculations();
+
+        // rebuild model handler
+        document.getElementById('rebuildBtn').onclick = async () => {
+            const b = document.getElementById('rebuildBtn');
+            b.disabled = true; b.textContent = 'Rebuilding...';
+            const resp = await fetch('/api/admin/rebuild-model', { method: 'POST' });
+            const j = await resp.json();
+            if (j && j.success) {
+                await loadModelStatus();
+                alert('Model rebuilt');
+            } else {
+                alert('Ошибка: ' + (j.message||'unknown'));
+            }
+            b.disabled = false; b.textContent = 'Rebuild model';
+        };
+
+        // DB viewer
+        document.getElementById('loadTable').onclick = async () => {
+            const tbl = document.getElementById('dbTable').value;
+            const resDB = await fetch(`/api/admin/db/${tbl}`);
+            const j = await resDB.json();
+            const rows = j.rows || [];
+            const thead = document.getElementById('dbTableView').querySelector('thead');
+            const tbody = document.getElementById('dbTableView').querySelector('tbody');
+            thead.innerHTML = ''; tbody.innerHTML = '';
+            if(rows.length===0){ thead.innerHTML = '<tr><th>Нет данных</th></tr>'; return; }
+            // build header
+            const cols = Object.keys(rows[0]);
+            const htr = document.createElement('tr'); cols.forEach(c=>{ const th=document.createElement('th'); th.textContent=c; htr.appendChild(th); }); thead.appendChild(htr);
+            rows.forEach(rw=>{ const tr=document.createElement('tr'); cols.forEach(c=>{ const td=document.createElement('td'); td.textContent = rw[c]; tr.appendChild(td); }); tbody.appendChild(tr); });
+        };
+
+        // build denormalized table
+        document.getElementById('buildDenorm').onclick = async () => {
+            const status = document.getElementById('denormStatus');
+            status.textContent = 'Running...';
+            const resp = await fetch('/api/admin/build-denorm', { method: 'POST' });
+            const j = await resp.json();
+            if (j && j.success) {
+                status.textContent = 'Done';
+            } else {
+                status.textContent = 'Error: ' + (j.message || '');
+            }
+        };
+
+        // popularity chart
+        async function loadPopularityChart(){
+            const resPop = await fetch('/api/admin/popularity');
+            const j = await resPop.json();
+            const items = j.items || [];
+            const total = items.reduce((s,it)=>s+ (it.cnt||0), 0) || 1;
+            const colors = ['#667eea','#764ba2','#34c38f','#f6c85f','#ff7a7a','#7bd389','#4aa3ff','#ffa07a','#a78bfa','#60c5ba'];
+            const container = document.getElementById('popChartContainer');
+            container.innerHTML = '';
+            const svgNS = 'http://www.w3.org/2000/svg';
+            const size = 280; const cx = size/2; const cy = size/2; const r = 100;
+            const svg = document.createElementNS(svgNS,'svg'); svg.setAttribute('width',size); svg.setAttribute('height',size);
+            let start = 0;
+            items.forEach((it, idx)=>{
+                const v = (it.cnt||0)/total;
+                const end = start + v;
+                const x1 = cx + r*Math.cos(2*Math.PI*start - Math.PI/2);
+                const y1 = cy + r*Math.sin(2*Math.PI*start - Math.PI/2);
+                const x2 = cx + r*Math.cos(2*Math.PI*end - Math.PI/2);
+                const y2 = cy + r*Math.sin(2*Math.PI*end - Math.PI/2);
+                const large = v>0.5?1:0;
+                const path = document.createElementNS(svgNS,'path');
+                const d = `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`;
+                path.setAttribute('d', d);
+                path.setAttribute('fill', colors[idx%colors.length]);
+                path.setAttribute('stroke', '#fff'); path.setAttribute('stroke-width','1');
+                svg.appendChild(path);
+                start = end;
+            });
+            // hole for donut
+            const hole = document.createElementNS(svgNS,'circle'); hole.setAttribute('cx',cx); hole.setAttribute('cy',cy); hole.setAttribute('r',60); hole.setAttribute('fill','#fff'); svg.appendChild(hole);
+            container.appendChild(svg);
+
+            // legend
+            const legend = document.getElementById('popLegend'); legend.innerHTML = '';
+            items.forEach((it, idx)=>{
+                const el = document.createElement('div'); el.style.display='flex'; el.style.alignItems='center'; el.style.gap='8px'; el.style.marginBottom='6px';
+                const sw = document.createElement('div'); sw.style.width='14px'; sw.style.height='14px'; sw.style.background=colors[idx%colors.length]; sw.style.borderRadius='3px';
+                const label = document.createElement('div'); label.textContent = `${it.name} — ${it.cnt}`;
+                el.appendChild(sw); el.appendChild(label); legend.appendChild(el);
+            });
+        }
+
+        // load popularity on open
+        loadPopularityChart();
+
+    </script>
+</body>
+</html>

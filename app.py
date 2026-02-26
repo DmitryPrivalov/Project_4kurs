@@ -5,7 +5,27 @@ import re
 import shutil
 from datetime import datetime
 from functools import wraps
-from flasgger import Swagger
+try:
+  from flasgger import Swagger
+except Exception:
+  Swagger = None
+
+# Compatibility shim for Python versions where pkgutil.get_loader was removed
+import pkgutil
+if not hasattr(pkgutil, 'get_loader'):
+  import importlib
+  import importlib.util
+  def _get_loader(name):
+    try:
+      spec = importlib.util.find_spec(name)
+      return spec.loader if spec is not None else None
+    except Exception:
+      return None
+  pkgutil.get_loader = _get_loader
+try:
+  from recommendations import RecommendationEngine
+except Exception:
+  RecommendationEngine = None
 
 # Create app
 app = Flask(__name__)
@@ -48,7 +68,13 @@ swagger_template = {
     }
 }
 
-swagger = Swagger(app, config=swagger_config, template=swagger_template)
+if Swagger is not None:
+  try:
+    swagger = Swagger(app, config=swagger_config, template=swagger_template)
+  except Exception:
+    swagger = None
+else:
+  swagger = None
 
 # Setup static files on first run
 def setup_static_files():
@@ -199,6 +225,17 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
+# Initialize recommendation engine lazily
+reco_engine = None
+def get_reco_engine():
+    global reco_engine
+    if reco_engine is None and RecommendationEngine is not None:
+        try:
+            reco_engine = RecommendationEngine('data.db')
+        except Exception:
+            reco_engine = None
+    return reco_engine
+
 def validate_login(login):
     """Validate login format"""
     if not login or len(login) < 7 or len(login) > 26:
@@ -311,6 +348,19 @@ def api_products():
     products = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return jsonify(products)
+
+@app.route('/api/recommendations/<int:product_id>')
+def api_recommendations(product_id):
+    """API: получить рекомендации похожих товаров по ID"""
+    engine = get_reco_engine()
+    if engine is None:
+        return jsonify([])
+
+    try:
+        recs = engine.get_recommendations(product_id, top_k=5)
+        return jsonify(recs)
+    except Exception:
+        return jsonify([])
 
 @app.route('/login', methods=['GET', 'POST'])
 def login_page():
@@ -751,6 +801,216 @@ def admin_users():
     conn.close()
     
     return render_template('admin_users.html', users=users)
+
+@app.route('/admin/insights')
+def admin_insights():
+    """Admin: AI Insights + DB Viewer"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('index'))
+
+    # load products for selector
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT id, name FROM goods ORDER BY id')
+    products = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+    return render_template('admin_insights.html', products=products)
+
+
+@app.route('/api/admin/model-status')
+def api_admin_model_status():
+    """Return basic information about the recommendation model"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({'error': 'no access'}), 403
+
+    engine = get_reco_engine()
+    if engine is None or engine.matrix is None:
+        return jsonify({'built': False})
+
+    vocab_size = len(engine.tfidf.vocabulary_) if getattr(engine, 'tfidf', None) and getattr(engine.tfidf, 'vocabulary_', None) else 0
+    return jsonify({
+        'built': True,
+        'n_products': len(engine.products),
+        'vocab_size': vocab_size
+    })
+
+
+@app.route('/api/admin/calculations/<int:product_id>')
+def api_admin_calculations(product_id):
+    """Return detailed aggregated scores for recommendations for given product"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+      return jsonify({'error': 'no access'}), 403
+
+    engine = get_reco_engine()
+    if engine is None or engine.matrix is None or product_id not in engine.ids:
+      return jsonify({'items': []})
+
+    # pagination params
+    try:
+      page = int(request.args.get('page', 1))
+    except Exception:
+      page = 1
+    try:
+      per_page = int(request.args.get('per_page', 10))
+    except Exception:
+      per_page = 10
+
+    # compute cosine similarities
+    try:
+      from sklearn.metrics.pairwise import linear_kernel
+    except Exception:
+      return jsonify({'items': []})
+
+    idx = engine.ids.index(product_id)
+    cosine_similarities = linear_kernel(engine.matrix[idx:idx+1], engine.matrix).flatten()
+    cosine_similarities[idx] = -1
+
+    items = []
+    max_pop = max((p.get('popularity', 0) for p in engine.products), default=1)
+    alpha = 0.8
+    beta = 0.2
+
+    for i, cos in enumerate(cosine_similarities):
+      if i == idx:
+        continue
+      p = engine.products[i]
+      pop = float(p.get('popularity', 0))
+      pop_norm = pop / max_pop if max_pop > 0 else 0.0
+      final_score = alpha * float(cos) + beta * pop_norm
+      items.append({
+        'id': p['id'],
+        'name': p['name'],
+        'cosine': float(cos),
+        'popularity': pop,
+        'pop_norm': pop_norm,
+        'final_score': float(final_score)
+      })
+
+    # sort by final_score desc
+    items = sorted(items, key=lambda x: x['final_score'], reverse=True)
+    total = len(items)
+    start = (page - 1) * per_page
+    end = start + per_page
+    items_page = items[start:end]
+    return jsonify({'items': items_page, 'total': total, 'page': page, 'per_page': per_page})
+
+
+@app.route('/api/admin/popularity')
+def api_admin_popularity():
+    """Return top products by popularity (from denormalized_data or orders)"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({'error': 'no access'}), 403
+
+    conn = get_db()
+    cur = conn.cursor()
+    try:
+        # prefer denormalized_data if exists
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='denormalized_data'")
+        if cur.fetchone():
+            cur.execute('SELECT product_id, product_name as name, COUNT(*) as cnt FROM denormalized_data GROUP BY product_id ORDER BY cnt DESC LIMIT 10')
+        else:
+            cur.execute('SELECT o.product_id as product_id, g.name as name, COUNT(*) as cnt FROM orders o JOIN goods g ON o.product_id = g.id GROUP BY o.product_id ORDER BY cnt DESC LIMIT 10')
+        rows = [dict(r) for r in cur.fetchall()]
+    except Exception:
+        rows = []
+    conn.close()
+    return jsonify({'items': rows})
+
+
+@app.route('/_dev/admin/calculations/<int:product_id>')
+def dev_api_admin_calculations(product_id):
+    """Development-only: same as admin calculations but without session check (allowed only in debug)."""
+    if not app.debug:
+        return jsonify({'error': 'not allowed'}), 403
+
+    engine = get_reco_engine()
+    if engine is None or engine.matrix is None or product_id not in engine.ids:
+        return jsonify({'items': []})
+
+    try:
+        from sklearn.metrics.pairwise import linear_kernel
+    except Exception:
+        return jsonify({'items': []})
+
+    idx = engine.ids.index(product_id)
+    cosine_similarities = linear_kernel(engine.matrix[idx:idx+1], engine.matrix).flatten()
+    cosine_similarities[idx] = -1
+
+    items = []
+    max_pop = max((p.get('popularity', 0) for p in engine.products), default=1)
+    alpha = 0.8
+    beta = 0.2
+
+    for i, cos in enumerate(cosine_similarities):
+        if i == idx:
+            continue
+        p = engine.products[i]
+        pop = float(p.get('popularity', 0))
+        pop_norm = pop / max_pop if max_pop > 0 else 0.0
+        final_score = alpha * float(cos) + beta * pop_norm
+        items.append({
+            'id': p['id'],
+            'name': p['name'],
+            'cosine': float(cos),
+            'popularity': pop,
+            'pop_norm': pop_norm,
+            'final_score': float(final_score)
+        })
+
+    items = sorted(items, key=lambda x: x['final_score'], reverse=True)[:50]
+    return jsonify({'items': items})
+
+
+@app.route('/api/admin/db/<table>')
+def api_admin_db(table):
+    """Return limited rows from a DB table for admin viewer"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({'error': 'no access'}), 403
+
+    allowed = {'goods', 'orders', 'users', 'denormalized_data'}
+    if table not in allowed:
+        return jsonify({'error': 'invalid table'}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(f'SELECT * FROM {table} LIMIT 200')
+        rows = [dict(r) for r in cursor.fetchall()]
+    except Exception:
+        rows = []
+    conn.close()
+    return jsonify({'rows': rows})
+
+@app.route('/api/admin/rebuild-model', methods=['POST'])
+def api_admin_rebuild_model():
+    """Force rebuild recommendation engine"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({'success': False, 'message': 'no access'}), 403
+
+    engine = get_reco_engine()
+    if engine is None:
+        return jsonify({'success': False, 'message': 'engine missing'}), 500
+
+    try:
+        engine.refresh()
+        return jsonify({'success': True, 'message': 'rebuilt'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/admin/build-denorm', methods=['POST'])
+def api_admin_build_denorm():
+    """Build denormalized_data table by running the create_denormalized_table logic"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({'success': False, 'message': 'no access'}), 403
+
+    try:
+        # import and run function
+        from create_denormalized_table import create_denormalized_table
+        create_denormalized_table()
+        return jsonify({'success': True, 'message': 'denormalized table built'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/admin/delete-user/<int:user_id>', methods=['POST'])
 def delete_user(user_id):

@@ -1,0 +1,6 @@
+/* Lightweight responsive overrides */
+@media (max-width: 768px) {
+  .intro__title { font-size: 24px; }
+  .product-image img { height: 180px; }
+  .header__wrapper { flex-direction: column; text-align: center; }
+}
