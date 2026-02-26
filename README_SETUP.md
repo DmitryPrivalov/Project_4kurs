@@ -16,7 +16,8 @@ Windows (рекомендуемый сценарий)
 3. Подготовьте базу и заполните данными (скрипт idempotent):
 
    .\.venv\Scripts\python setup_everything.py
-   .\.venv\Scripts\python scripts\auto_populate.py
+   OR simply run the orchestrator which will restore prebuilt DB if available:
+   .\.venv\Scripts\python scripts\full_setup.py
 
 4. Запустите приложение локально:
 
@@ -39,7 +40,8 @@ Unix / macOS
 3. Подготовьте базу и заполните данными:
 
    python setup_everything.py
-   python scripts/auto_populate.py
+   OR simply run the orchestrator which will restore prebuilt DB if available:
+   python scripts/full_setup.py
 
 4. Запустите приложение:
 
