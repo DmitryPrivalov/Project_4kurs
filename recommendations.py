@@ -2,6 +2,7 @@ import sqlite3
 from typing import List, Dict
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import linear_kernel
+from scipy.sparse import hstack
 import numpy as np
 
 
@@ -39,6 +40,8 @@ class RecommendationEngine:
         self.products = rows
 
         corpus = []
+        # separate categorical text for category/manufacturer/compatibility
+        cat_corpus = []
         conn = self._connect()
         for r in rows:
             parts = [str(r.get('name', '')), str(r.get('description', '')),
@@ -60,11 +63,37 @@ class RecommendationEngine:
                 pass
 
             corpus.append(' '.join(parts))
+            # build small categorical text blob (short, repeated)
+            cat_parts = [str(r.get('category', '')), str(r.get('manufacturer', '')), str(r.get('compatibility', ''))]
+            cat_corpus.append(' '.join(cat_parts))
         conn.close()
 
-        # sklearn supports 'english' or custom list for stop_words; use default (None)
+        # Vectorize main textual corpus
         self.tfidf = TfidfVectorizer(stop_words=None, max_features=5000)
-        self.matrix = self.tfidf.fit_transform(corpus)
+        matrix_text = self.tfidf.fit_transform(corpus)
+
+        # Vectorize categorical fields (category/manufacturer/compatibility)
+        # Use a smaller TF-IDF to capture categorical similarity
+        self.tfidf_cat = TfidfVectorizer(stop_words=None, max_features=500)
+        matrix_cat = self.tfidf_cat.fit_transform(cat_corpus)
+
+        # combine matrices horizontally; we may scale categorical part if desired
+        # give higher weight to text and smaller to categorical
+        # to scale sparse matrix, multiply data by factor
+        try:
+            # scale categorical vectors by 0.6 relative weight
+            cat_weight = 0.6
+            from scipy.sparse import csr_matrix
+            matrix_cat = matrix_cat.multiply(cat_weight)
+        except Exception:
+            pass
+
+        # final matrix
+        try:
+            self.matrix = hstack([matrix_text, matrix_cat], format='csr')
+        except Exception:
+            # fallback to text only
+            self.matrix = matrix_text
         # load popularity from denormalized table if exists
         try:
             conn = sqlite3.connect(self.db_path)
